@@ -2,9 +2,9 @@
 
 The interface is built in **native WPF / .NET 8**, not HTML or Electron. The supplied futuristic dark-blue and cyan Madi AI image is the visual direction.
 
-**Current starter features:** animated holographic orbit interface; dark command dashboard; first-run secret-code enrollment and later verification with a salted PBKDF2 hash (code not stored in GitHub); spoken "Tell me your secret code to open me" greeting and "Welcome, Boss Hammad" after unlock; typing commands to open basic Windows apps, web services and a chosen file; arithmetic; basic chat greetings. No paid API is required for these basic actions.
+**Current starter features:** animated holographic orbit interface; dark command dashboard; first-run secret-code enrollment and later verification with a salted PBKDF2 hash (code not stored in GitHub); spoken "Tell me your secret code to open me" greeting and "Welcome, Boss Hammad" after unlock; limited offline English voice recognition (if Windows speech components are installed), typing commands to open basic Windows apps, web services and a chosen file; arithmetic; basic chat greetings. No paid API is required for these basic actions.
 
-**Not yet working:** general AI chat, reliable voice-command recognition, native computer vision, MT5 trading, automatic eBay/Canva/AliExpress operations, WhatsApp messaging or AI voice calls, complete system settings control, and full dark custom installer wizard. These require additional integration and testing. Do not enable high-impact actions without safeguards.
+**Not yet working:** general AI chat, general free-form speech transcription, native computer vision, MT5 trading, automatic eBay/Canva/AliExpress operations, WhatsApp messaging or AI voice calls, complete system settings control, and full dark custom installer wizard. These require additional integration and testing. Do not enable high-impact actions without safeguards.
 
 ## Windows installation
 
