@@ -1,6 +1,8 @@
 Unicode True
 !include "MUI2.nsh"
 Name "Madi AI"
+Icon "..\assets\madi.ico"
+UninstallIcon "..\assets\madi.ico"
 OutFile "Madi-AI-Setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\MadiAI"
 RequestExecutionLevel user
