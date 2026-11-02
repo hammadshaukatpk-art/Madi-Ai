@@ -26,5 +26,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Madi-AI-Windows-Installer
-          path: Madi-AI-Setup.exe
+          path: installer/Madi-AI-Setup.exe
           if-no-files-found: error
