@@ -1,0 +1,30 @@
+name: Build Native Madi AI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish native WPF desktop app
+        shell: pwsh
+        run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+      - name: Build installer
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\NSIS\makensis.exe" installer\madi.nsi'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Madi-AI-Windows-Installer
+          path: Madi-AI-Setup.exe
+          if-no-files-found: error
