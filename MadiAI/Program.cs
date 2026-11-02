@@ -80,7 +80,7 @@ public sealed class Home:Window {
   var cmdGrid=new Grid();cmdGrid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(90)});cmdGrid.ColumnDefinitions.Add(new ColumnDefinition());cmdGrid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(115)});
   Grid.SetRow(cmdGrid,2);main.Children.Add(cmdGrid);
   var mic=Button("🎙 Voice",()=>{status.Text="Offline voice recognition requires a separate speech-recognition module. Text commands work.";Say(status.Text);});cmdGrid.Children.Add(mic);
-  command.Background=panel;command.Foreground=ink;command.BorderBrush=cyan;command.FontSize=16;command.Margin=new Thickness(8,19);command.VerticalContentAlignment=VerticalAlignment.Center;
+  command.Background=panel;command.Foreground=ink;command.BorderBrush=cyan;command.FontSize=16;command.Margin=new Thickness(8,19,8,19);command.VerticalContentAlignment=VerticalAlignment.Center;
   command.KeyDown+=(_,e)=>{if(e.Key==System.Windows.Input.Key.Enter)Run(command.Text);};Grid.SetColumn(command,1);cmdGrid.Children.Add(command);
   var run=Button("EXECUTE",()=>Run(command.Text));Grid.SetColumn(run,2);cmdGrid.Children.Add(run);
   var dock=new UniformGrid{Columns=8};Grid.SetRow(dock,3);main.Children.Add(dock);
@@ -93,7 +93,7 @@ public sealed class Home:Window {
   var layer=new Grid{Background=new SolidColorBrush(Color.FromArgb(245,3,11,23))};Grid.SetColumnSpan(layer,2);Panel.SetZIndex(layer,50);root.Children.Add(layer);
   var card=Card();card.Width=490;card.Height=310;card.HorizontalAlignment=HorizontalAlignment.Center;card.VerticalAlignment=VerticalAlignment.Center;layer.Children.Add(card);
   var stack=new StackPanel{VerticalAlignment=VerticalAlignment.Center};card.Child=stack;stack.Children.Add(Text("◈  MADI AI",36,cyan));
-  stack.Children.Add(Text("Tell me your secret code to open me",17));password.Height=42;password.Background=panel;password.Foreground=ink;password.BorderBrush=cyan;password.Margin=new Thickness(4,12);stack.Children.Add(password);
+  stack.Children.Add(Text("Tell me your secret code to open me",17));password.Height=42;password.Background=panel;password.Foreground=ink;password.BorderBrush=cyan;password.Margin=new Thickness(4,12,4,12);stack.Children.Add(password);
   var label=Text(File.Exists(auth)?"Enter your saved secret code":"First launch: set your secret code (6+ characters)",12);stack.Children.Add(label);
   void Unlock(){
    var code=password.Password;if(code.Length<6){label.Text="At least 6 characters required";return;}
