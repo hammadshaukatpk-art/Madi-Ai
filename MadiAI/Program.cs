@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Speech.Synthesis;
+using System.Speech.Recognition;
 using System.Text.RegularExpressions;
 using System.Data;
 namespace MadiAI;
@@ -22,6 +23,7 @@ public sealed class Home:Window {
  readonly PasswordBox password=new(); readonly TextBox command=new();
  readonly string auth=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
  bool unlocked;
+ SpeechRecognitionEngine? recognizer; bool listening;
  static readonly Brush ink=new SolidColorBrush(Color.FromRgb(223,246,255));
  static readonly Brush panel=new SolidColorBrush(Color.FromRgb(8,24,42));
  static readonly Brush cyan=new SolidColorBrush(Color.FromRgb(41,211,250));
@@ -79,7 +81,7 @@ public sealed class Home:Window {
   caps.Children.Add(Text("✦ MY CAPABILITIES",17,cyan));foreach(var x in new[]{"✓ Open Windows apps","✓ Web and search","✓ Calculator and files","◌ Listing automation: planned","◌ Canva editing: planned","◌ WhatsApp calling: unsupported"})caps.Children.Add(Text(x,12));
   var cmdGrid=new Grid();cmdGrid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(90)});cmdGrid.ColumnDefinitions.Add(new ColumnDefinition());cmdGrid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(115)});
   Grid.SetRow(cmdGrid,2);main.Children.Add(cmdGrid);
-  var mic=Button("🎙 Voice",()=>{status.Text="Offline voice recognition requires a separate speech-recognition module. Text commands work.";Say(status.Text);});cmdGrid.Children.Add(mic);
+  var mic=Button("🎙 Voice",ToggleListen);cmdGrid.Children.Add(mic);
   command.Background=panel;command.Foreground=ink;command.BorderBrush=cyan;command.FontSize=16;command.Margin=new Thickness(8,19,8,19);command.VerticalContentAlignment=VerticalAlignment.Center;
   command.KeyDown+=(_,e)=>{if(e.Key==System.Windows.Input.Key.Enter)Run(command.Text);};Grid.SetColumn(command,1);cmdGrid.Children.Add(command);
   var run=Button("EXECUTE",()=>Run(command.Text));Grid.SetColumn(run,2);cmdGrid.Children.Add(run);
@@ -88,6 +90,22 @@ public sealed class Home:Window {
   var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(6)};
   timer.Tick+=(_,_)=>{try{var mem=GC.GetGCMemoryInfo();var drv=new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory)!);disk.Text="Disk: "+Math.Round(100.0*(1-drv.TotalFreeSpace/(double)drv.TotalSize))+"% used";memory.Text="RAM available in system settings";}catch{}};
   timer.Start();
+ }
+ void ToggleListen(){
+  if(!unlocked)return;
+  try {
+   if(recognizer==null){
+    recognizer=new SpeechRecognitionEngine(System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+    var phrases=new[]{"open browser","open youtube","open google","open whatsapp","open chatgpt","open canva","open ebay","open aliexpress","open calculator","open notepad","open paint","open settings","open explorer","open task manager","open word","open excel","open file","open mt5","hello","hi","how are you"};
+    var grammar=new Grammar(new GrammarBuilder(new Choices(phrases)));
+    recognizer.LoadGrammar(grammar);
+    recognizer.SetInputToDefaultAudioDevice();
+    recognizer.SpeechRecognized+=(_,e)=>Dispatcher.Invoke(()=>{if(e.Result.Confidence>=0.68){command.Text=e.Result.Text;Run(e.Result.Text);}});
+    recognizer.RecognizeCompleted+=(_,_)=>Dispatcher.Invoke(()=>{listening=false;status.Text="Voice standby";});
+   }
+   if(listening){recognizer.RecognizeAsyncStop();listening=false;status.Text="Voice paused";}
+   else {recognizer.RecognizeAsync(RecognizeMode.Multiple);listening=true;status.Text="Listening for a supported English command";}
+  } catch(Exception ex){status.Text="Offline recognition unavailable: "+ex.Message;listening=false;}
  }
  void ShowGate(){
   var layer=new Grid{Background=new SolidColorBrush(Color.FromArgb(245,3,11,23))};Grid.SetColumnSpan(layer,2);Panel.SetZIndex(layer,50);root.Children.Add(layer);
