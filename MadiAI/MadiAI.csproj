@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>MadiAI</AssemblyName></PropertyGroup>
+<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><ApplicationIcon>../assets/madi.ico</ApplicationIcon><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>MadiAI</AssemblyName></PropertyGroup>
 <ItemGroup><PackageReference Include="System.Speech" Version="8.0.0"/></ItemGroup>
 </Project>
