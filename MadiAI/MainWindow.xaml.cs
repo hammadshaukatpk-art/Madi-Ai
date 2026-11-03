@@ -347,7 +347,7 @@ public partial class MainWindow : Window
             MicButton.Content = "×";
             await EnsureModelAsync(voiceSetupCancellation.Token);
             voiceSetupCancellation.Token.ThrowIfCancellationRequested();
-            if (WaveInEvent.DeviceCount == 0)
+            if (WaveIn.DeviceCount == 0)
                 throw new InvalidOperationException("No microphone was found. Connect a microphone and enable Windows microphone access.");
             listening = true;
             ListenStatus.Text = "● Listening";
