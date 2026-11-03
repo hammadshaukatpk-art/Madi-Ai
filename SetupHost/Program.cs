@@ -93,6 +93,10 @@ public sealed class SetupWindow : Window
  static readonly Brush Panel=new SolidColorBrush(Color.FromRgb(7,25,49));
  readonly string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","MadiAI");
  readonly bool uninstall;
+ readonly string authPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
+ readonly PasswordBox secretInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
+ readonly PasswordBox confirmInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
+ string? pendingSecretCode;
  bool finished;
  readonly TextBlock status=new(){FontSize=14,Foreground=Ink,TextWrapping=TextWrapping.Wrap,HorizontalAlignment=HorizontalAlignment.Center};
  readonly ProgressBar progress=new(){Height=13,Minimum=0,Maximum=100,Value=0,Foreground=new SolidColorBrush(Cyan),Background=new SolidColorBrush(Color.FromRgb(12,43,77)),Margin=new Thickness(0,17,0,17)};
@@ -190,6 +194,13 @@ public sealed class SetupWindow : Window
  async void Primary_Click(object sender,RoutedEventArgs e)
  {
   if(finished){if(!uninstall && launch.IsChecked==true)TryLaunch();Close();return;}
+  if(!uninstall && !File.Exists(authPath))
+  {
+   if(secretInput.Password.Length<6) {status.Text="Choose a secret code of at least 6 characters before installing.";secretInput.Focus();return;}
+   if(secretInput.Password!=confirmInput.Password) {status.Text="Secret codes do not match. Please enter both again.";confirmInput.Focus();return;}
+   pendingSecretCode=secretInput.Password;
+   secretInput.Clear();confirmInput.Clear();
+  }
   await ExecuteAsync();
  }
  async System.Threading.Tasks.Task ExecuteAsync()
@@ -212,7 +223,15 @@ public sealed class SetupWindow : Window
  void TryLaunch(){try{Process.Start(new ProcessStartInfo(Path.Combine(target,"MadiAI.exe")){UseShellExecute=true});}catch{}}
  public void IntegrationTest()
  {
+  var createdProfile=!File.Exists(authPath);
+  if(createdProfile) pendingSecretCode=Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
   Install();
+  if(!File.Exists(authPath)) throw new IOException("Installer did not create secret code profile.");
+  using(var document=JsonDocument.Parse(File.ReadAllText(authPath)))
+  {
+   if(document.RootElement.GetProperty("salt").GetString() is null || document.RootElement.GetProperty("hash").GetString() is null)
+    throw new IOException("Secret code profile format invalid.");
+  }
   if (!File.Exists(Path.Combine(target,"MadiAI.exe"))) throw new IOException("Installed app missing.");
   using (var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI"))
   {
@@ -223,10 +242,12 @@ public sealed class SetupWindow : Window
   if (Directory.Exists(target)) throw new IOException("Uninstall did not remove application folder.");
   using var leftover=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
   if (leftover != null) throw new IOException("Uninstall registry entry was not removed.");
+  if(createdProfile) File.Delete(authPath);
  }
 
  void Install()
  {
+  if(!File.Exists(authPath) && string.IsNullOrWhiteSpace(pendingSecretCode)) throw new InvalidOperationException("Create a private secret code before installation.");
   Directory.CreateDirectory(target);
   using var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("MadiAI.Payload") ?? throw new FileNotFoundException("Embedded app package not found.");
   using var archive=new ZipArchive(resource,ZipArchiveMode.Read);
@@ -247,6 +268,17 @@ public sealed class SetupWindow : Window
   key.SetValue("NoModify",1,RegistryValueKind.DWord);
   key.SetValue("NoRepair",1,RegistryValueKind.DWord);
   key.SetValue("InstallLocation",target);
+  if(!File.Exists(authPath))
+  {
+   var code=pendingSecretCode ?? throw new InvalidOperationException("Secret code is required.");
+   var salt=RandomNumberGenerator.GetBytes(16);
+   var hash=Rfc2898DeriveBytes.Pbkdf2(code,salt,200000,HashAlgorithmName.SHA256,32);
+   Directory.CreateDirectory(Path.GetDirectoryName(authPath)!);
+   var temp=authPath+".new";
+   File.WriteAllText(temp,JsonSerializer.Serialize(new {salt=Convert.ToBase64String(salt),hash=Convert.ToBase64String(hash)}));
+   File.Move(temp,authPath,false);
+  }
+  pendingSecretCode=null;
  }
  static void Shortcut(string path,string exe,string arguments="")
  {
