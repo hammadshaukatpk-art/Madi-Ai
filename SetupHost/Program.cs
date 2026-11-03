@@ -96,10 +96,7 @@ public sealed class SetupWindow : Window
  public bool RequiresCode => !uninstall && !File.Exists(authPath);
  readonly string authPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
  readonly PasswordBox secretInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
- readonly CheckBox resetChoice=new(){Content="Set a NEW secret code for this Windows user",Foreground=Ink,FontSize=13,Margin=new Thickness(0,8,0,7)};
- readonly StackPanel resetFields=new(){Visibility=Visibility.Collapsed};
  readonly PasswordBox confirmInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
- string? pendingSecretCode;
  bool finished;
  readonly TextBlock status=new(){FontSize=14,Foreground=Ink,TextWrapping=TextWrapping.Wrap,HorizontalAlignment=HorizontalAlignment.Center};
  readonly ProgressBar progress=new(){Height=13,Minimum=0,Maximum=100,Value=0,Foreground=new SolidColorBrush(Cyan),Background=new SolidColorBrush(Color.FromRgb(12,43,77)),Margin=new Thickness(0,17,0,17)};
@@ -168,27 +165,20 @@ public sealed class SetupWindow : Window
   status.Margin=new Thickness(4,6,4,8);right.Children.Add(status);
   if(!remove)
   {
-   if(!File.Exists(authPath))
-   {
-    right.Children.Add(new TextBlock{Text="CREATE YOUR PRIVATE SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12,Margin=new Thickness(0,7,0,3)});
-    right.Children.Add(secretInput);
-    right.Children.Add(new TextBlock{Text="CONFIRM SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
-    right.Children.Add(confirmInput);
-    right.Children.Add(new TextBlock{Text="Minimum 6 characters. Stored as a salted hash on this PC; never uploaded to GitHub.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(146,190,222)),FontSize=11,Margin=new Thickness(0,2,0,0)});
-   }
-   else
-   {
-    right.Children.Add(new TextBlock{Text="An existing local code was found. It is NOT stored in the GitHub repository.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Cyan),FontSize=12,Margin=new Thickness(0,8,0,0)});
-    right.Children.Add(resetChoice);
-    resetFields.Children.Add(new TextBlock{Text="NEW PRIVATE CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
-    resetFields.Children.Add(secretInput);
-    resetFields.Children.Add(new TextBlock{Text="CONFIRM NEW CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
-    resetFields.Children.Add(confirmInput);
-    resetFields.Children.Add(new TextBlock{Text="Changing this code replaces the saved code for your current Windows account. You must enter the new code next time you open Madi AI.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(146,190,222)),FontSize=11});
-    resetChoice.Checked+=(_,_)=>resetFields.Visibility=Visibility.Visible;
-    resetChoice.Unchecked+=(_,_)=>{resetFields.Visibility=Visibility.Collapsed;secretInput.Clear();confirmInput.Clear();};
-    right.Children.Add(resetFields);
-   }
+   bool firstInstall=!File.Exists(authPath);
+   right.Children.Add(new TextBlock{
+    Text=firstInstall?"CREATE YOUR PRIVATE ACCESS CODE":"PRIVATE ACCESS CODE",
+    Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,
+    FontSize=13,Margin=new Thickness(0,14,0,4)
+   });
+   right.Children.Add(secretInput);
+   right.Children.Add(new TextBlock{Text="CONFIRM ACCESS CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=13,Margin=new Thickness(0,5,0,4)});
+   right.Children.Add(confirmInput);
+   right.Children.Add(new TextBlock{
+    Text=firstInstall?"Choose at least 6 characters. Your code stays private on this computer.":"Enter a new code to change it, or leave both fields blank to keep your current code.",
+    TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(146,190,222)),
+    FontSize=12,Margin=new Thickness(0,7,0,5)
+   });
   }
   right.Children.Add(progress);
   if(!remove)right.Children.Add(launch);
@@ -206,50 +196,72 @@ public sealed class SetupWindow : Window
  async void Primary_Click(object sender,RoutedEventArgs e)
  {
   if(finished){if(!uninstall && launch.IsChecked==true)TryLaunch();Close();return;}
-  if(!uninstall && (!File.Exists(authPath) || resetChoice.IsChecked==true))
+  string? code=null;
+  if(!uninstall)
   {
-   if(secretInput.Password.Length<6) {status.Text="Choose a secret code of at least 6 characters before installing.";secretInput.Focus();return;}
-   if(secretInput.Password!=confirmInput.Password) {status.Text="Secret codes do not match. Please enter both again.";confirmInput.Focus();return;}
-   pendingSecretCode=secretInput.Password;
-   secretInput.Clear();confirmInput.Clear();
+   // Read WPF PasswordBox and checkbox state only on the owning UI thread.
+   // Never access these controls from the background installation worker.
+   string entered=secretInput.Password;
+   string confirmed=confirmInput.Password;
+   bool mustSetCode=!File.Exists(authPath);
+   if(mustSetCode || entered.Length>0 || confirmed.Length>0)
+   {
+    if(entered.Length<6){status.Text="Please enter an access code with at least 6 characters.";secretInput.Focus();return;}
+    if(!string.Equals(entered,confirmed,StringComparison.Ordinal)){status.Text="The two access codes do not match.";confirmInput.Focus();return;}
+    code=entered;
+   }
   }
-  await ExecuteAsync();
+  await ExecuteAsync(code);
  }
- async System.Threading.Tasks.Task ExecuteAsync()
+ async System.Threading.Tasks.Task ExecuteAsync(string? newCode)
  {
   primary.IsEnabled=false;
   try
   {
    status.Text=uninstall?"Removing application...":"Installing application...";
    progress.IsIndeterminate=true;
-   await System.Threading.Tasks.Task.Run(uninstall?Remove:Install);
+   // Pass immutable code data into the worker, not WPF controls or Window properties.
+   await System.Threading.Tasks.Task.Run(()=>{if(uninstall)Remove();else Install(newCode);});
    progress.IsIndeterminate=false;progress.Value=100;
-   status.Text=uninstall?"Madi AI was uninstalled. Your saved secret code was preserved.":"Madi AI was installed successfully.";
+   status.Text=uninstall?"Madi AI was uninstalled.":"Madi AI was installed successfully.";
    primary.Content="FINISH";finished=true;primary.IsEnabled=true;
+   secretInput.Clear();confirmInput.Clear();
   }
   catch(Exception ex)
   {
-   progress.IsIndeterminate=false;status.Text="Unable to finish: "+ex.Message;primary.Content="CLOSE";finished=true;primary.IsEnabled=true;
+   LogInstallationFailure(ex);
+   progress.IsIndeterminate=false;
+   progress.Value=0;
+   status.Text="Installation failed: "+ex.Message+"  You can retry without re-entering your code.";
+   primary.Content=uninstall?"RETRY UNINSTALL":"RETRY INSTALL";
+   finished=false;
+   primary.IsEnabled=true;
   }
+ }
+ static void LogInstallationFailure(Exception ex)
+ {
+  try
+  {
+   var folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI");
+   Directory.CreateDirectory(folder);
+   File.AppendAllText(Path.Combine(folder,"setup-crash.log"),DateTime.Now.ToString("O")+Environment.NewLine+ex+Environment.NewLine);
+  }
+  catch { }
  }
  void TryLaunch(){try{Process.Start(new ProcessStartInfo(Path.Combine(target,"MadiAI.exe")){UseShellExecute=true});}catch{}}
  public void IntegrationTest()
  {
   var createdProfile=!File.Exists(authPath);
-  var testCode=createdProfile?Convert.ToHexString(RandomNumberGenerator.GetBytes(24)):null;
-  pendingSecretCode=testCode;
-  Install();
+  var testCode=Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
+  // Exercise the real first-install / update code path from a background thread.
+  Install(createdProfile?testCode:null);
   if(!File.Exists(authPath)) throw new IOException("Installer did not create secret code profile.");
-  using(var document=JsonDocument.Parse(File.ReadAllText(authPath)))
+  if(createdProfile)
   {
-   var salt=Convert.FromBase64String(document.RootElement.GetProperty("salt").GetString()!);
-   var saved=Convert.FromBase64String(document.RootElement.GetProperty("hash").GetString()!);
-   if(salt.Length!=16 || saved.Length!=32) throw new IOException("Secret code profile format invalid.");
-   if(createdProfile)
-   {
-    var calculated=Rfc2898DeriveBytes.Pbkdf2(testCode!,salt,200000,HashAlgorithmName.SHA256,32);
-    if(!CryptographicOperations.FixedTimeEquals(saved,calculated)) throw new IOException("Saved secret code hash does not verify.");
-   }
+   VerifyCode(testCode);
+   var replacementCode=Convert.ToHexString(RandomNumberGenerator.GetBytes(12));
+   Install(replacementCode);
+   VerifyCode(replacementCode);
   }
   if (!File.Exists(Path.Combine(target,"MadiAI.exe"))) throw new IOException("Installed app missing.");
   using (var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI"))
@@ -263,10 +275,19 @@ public sealed class SetupWindow : Window
   if (leftover != null) throw new IOException("Uninstall registry entry was not removed.");
   if(createdProfile) File.Delete(authPath);
  }
-
- void Install()
+ void VerifyCode(string code)
  {
-  if((!File.Exists(authPath) || resetChoice.IsChecked==true) && string.IsNullOrWhiteSpace(pendingSecretCode)) throw new InvalidOperationException("Create a private secret code before installation.");
+  using var document=JsonDocument.Parse(File.ReadAllText(authPath));
+  var salt=Convert.FromBase64String(document.RootElement.GetProperty("salt").GetString()!);
+  var saved=Convert.FromBase64String(document.RootElement.GetProperty("hash").GetString()!);
+  if(salt.Length!=16||saved.Length!=32)throw new IOException("Invalid saved code format.");
+  var calculated=Rfc2898DeriveBytes.Pbkdf2(code,salt,200000,HashAlgorithmName.SHA256,32);
+  if(!CryptographicOperations.FixedTimeEquals(saved,calculated))throw new IOException("Saved access code verification failed.");
+ }
+ void Install(string? newCode)
+ {
+  if(!File.Exists(authPath) && string.IsNullOrWhiteSpace(newCode))
+   throw new InvalidOperationException("Please set your private access code before installing.");
   Directory.CreateDirectory(target);
   using var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("MadiAI.Payload") ?? throw new FileNotFoundException("Embedded app package not found.");
   using var archive=new ZipArchive(resource,ZipArchiveMode.Read);
@@ -283,26 +304,20 @@ public sealed class SetupWindow : Window
   key.SetValue("DisplayIcon",exe);
   key.SetValue("Publisher","Madi AI");
   key.SetValue("UninstallString",'"'+Path.Combine(target,"Uninstall Madi AI.exe")+'"'+" /uninstall");
-  key.SetValue("DisplayVersion","0.2.4");
+  key.SetValue("DisplayVersion","0.2.5");
   key.SetValue("NoModify",1,RegistryValueKind.DWord);
   key.SetValue("NoRepair",1,RegistryValueKind.DWord);
   key.SetValue("InstallLocation",target);
-  if(!File.Exists(authPath) || resetChoice.IsChecked==true)
+  if(!string.IsNullOrEmpty(newCode))
   {
-   var code=pendingSecretCode ?? throw new InvalidOperationException("Secret code is required.");
    var salt=RandomNumberGenerator.GetBytes(16);
-   var hash=Rfc2898DeriveBytes.Pbkdf2(code,salt,200000,HashAlgorithmName.SHA256,32);
+   var hash=Rfc2898DeriveBytes.Pbkdf2(newCode,salt,200000,HashAlgorithmName.SHA256,32);
    Directory.CreateDirectory(Path.GetDirectoryName(authPath)!);
    var temp=authPath+".new";
    File.WriteAllText(temp,JsonSerializer.Serialize(new {salt=Convert.ToBase64String(salt),hash=Convert.ToBase64String(hash)}));
-   if(File.Exists(authPath))
-   {
-    // Explicitly requested replacement: keep original code until the new hash is ready.
-    File.Replace(temp,authPath,null);
-   }
+   if(File.Exists(authPath))File.Replace(temp,authPath,null);
    else File.Move(temp,authPath,false);
   }
-  pendingSecretCode=null;
  }
  static void Shortcut(string path,string exe,string arguments="")
  {
