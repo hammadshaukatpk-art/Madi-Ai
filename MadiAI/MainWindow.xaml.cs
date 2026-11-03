@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private string pendingChromeService = "Google";
     private bool voicePreparing;
     private bool chatPending;
+    private bool installingLocalAi;
     private readonly List<(string Role, string Content)> chatHistory = new();
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
@@ -290,13 +291,26 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+    private static string? FindOllama()
+    {
+        var paths = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama", "ollama.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Ollama", "ollama.exe")
+        };
+        var installed = paths.FirstOrDefault(File.Exists);
+        if (installed != null) return installed;
+        var env = Environment.GetEnvironmentVariable("PATH") ?? "";
+        return env.Split(Path.PathSeparator).Select(p => Path.Combine(p.Trim('"'), "ollama.exe")).FirstOrDefault(File.Exists);
+    }
+
     private async Task AskLocalAiAsync(string question)
     {
         if (chatPending) { Respond("Please wait for the current answer.", false); return; }
         chatPending = true;
         try
         {
-            Respond("Thinking locally...", false);
+            Respond("Checking local AI model...", false);
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
             using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
             tagsResponse.EnsureSuccessStatusCode();
@@ -305,7 +319,7 @@ public partial class MainWindow : Window
                 .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
             if (models.Count == 0)
             {
-                Respond("Local AI is installed, but no language model is available. Install a model in Ollama to enable conversation.", false);
+                Respond("Offline AI needs a language model. Open Settings and choose Enable Local AI.");
                 return;
             }
             var model = models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
@@ -323,7 +337,7 @@ public partial class MainWindow : Window
             response.EnsureSuccessStatusCode();
             using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer.", false); return; }
+            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer."); return; }
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
             if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
@@ -331,15 +345,15 @@ public partial class MainWindow : Window
         }
         catch (HttpRequestException)
         {
-            Respond("Natural AI conversation requires a local model. Install Ollama and a model such as llama3.2. PC voice commands still work without it.", false);
+            Respond("Offline AI is not ready. Open Settings to install a free local model. App-opening commands still work.");
         }
         catch (TaskCanceledException)
         {
-            Respond("The local AI response timed out. Please try again.", false);
+            Respond("The local AI response timed out. Please try again.");
         }
         catch (Exception ex)
         {
-            Respond("Local AI chat error: " + ex.Message, false);
+            Respond("Local AI chat error: " + ex.Message);
         }
         finally { chatPending = false; }
     }
@@ -887,6 +901,47 @@ public partial class MainWindow : Window
             window.Close();
         };
         panel.Children.Add(save);
+        var local = new System.Windows.Controls.Button { Content = "ENABLE FREE OFFLINE AI (OLLAMA)", Height = 43, Margin = new Thickness(0, 10, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(75, 40, 134)) };
+        local.Click += async (_, _) =>
+        {
+            if (installingLocalAi) return;
+            var ollama = FindOllama();
+            if (ollama == null)
+            {
+                Respond("Ollama is not installed. Opening the official Windows installer page.", false);
+                Open("https://ollama.com/download/windows");
+                return;
+            }
+            if (System.Windows.MessageBox.Show(
+                "Download the free llama3.2:1b model? It uses about 1.3 GB of disk space and requires internet for the initial download. No paid API key is needed.",
+                "Enable Madi AI Offline Chat", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            installingLocalAi = true;
+            local.IsEnabled = false;
+            local.Content = "DOWNLOADING LOCAL MODEL — PLEASE WAIT";
+            try
+            {
+                var result = await Task.Run(async () =>
+                {
+                    using var proc = new Process { StartInfo = new ProcessStartInfo(ollama)
+                    {
+                        UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
+                        RedirectStandardError = true, Arguments = "pull llama3.2:1b"
+                    }};
+                    proc.Start();
+                    var output = proc.StandardOutput.ReadToEndAsync();
+                    var error = proc.StandardError.ReadToEndAsync();
+                    await proc.WaitForExitAsync();
+                    return (proc.ExitCode, StdOut: await output, StdErr: await error);
+                });
+                if (result.ExitCode != 0) throw new InvalidOperationException(result.StdErr.Length > 250 ? result.StdErr[..250] : result.StdErr);
+                Respond("Local AI model installed. You can now ask Madi AI general questions.");
+            }
+            catch (Exception ex) { Respond("Unable to install local model: " + ex.Message); }
+            finally { installingLocalAi = false; local.IsEnabled = true; local.Content = "ENABLE FREE OFFLINE AI (OLLAMA)"; }
+        };
+        panel.Children.Add(local);
         window.Content = panel;
         window.ShowDialog();
     }
