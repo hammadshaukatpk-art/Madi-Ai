@@ -20,7 +20,23 @@ jobs:
           python tools/generate_assets.py
       - name: Publish native Madi AI
         shell: pwsh
-        run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+        run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish
+      - name: Bundle offline multilingual speech model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path publish/models -Force | Out-Null
+          Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin' -OutFile publish/models/ggml-tiny.bin -MaximumRedirection 10
+          if ((Get-Item publish/models/ggml-tiny.bin).Length -lt 20000000) { throw 'Offline voice model is incomplete' }
+      - name: Verify offline speech engine
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-voice-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-voice' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Voice startup timed out' }
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Offline voice engine failed: $($p.ExitCode)" }
+          if (-not (Select-String -Path $log -Pattern 'initialized successfully' -Quiet)) { throw 'Voice engine did not initialize' }
       - name: Bundle app payload
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
@@ -46,6 +62,15 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Standalone installer failed: $($p.ExitCode)" }
           if (-not (Test-Path $log)) { throw 'Installer window did not start' }
           if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Installer window did not load' }
+      - name: Verify actual install and uninstall
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-install-integration.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path setup/Madi-AI-Setup.exe).Path -ArgumentList '--smoke-install-uninstall' -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Install/uninstall timed out' }
+          if ($p.ExitCode -ne 0) { throw "Install/uninstall failed: $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Install/uninstall success trace missing' }
       - uses: actions/upload-artifact@v4
         with:
           name: Madi-AI-Native-Dark-Installer
@@ -55,8 +80,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.1-alpha
-          name: Madi AI v0.2.1 Alpha - Windows native DLL packaging fix
+          tag_name: v0.2.2-alpha
+          name: Madi AI v0.2.2 Alpha - Voice, Uninstall and UI fixes
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
