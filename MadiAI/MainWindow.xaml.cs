@@ -115,12 +115,12 @@ public partial class MainWindow : Window
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
     }
     private void Unlock_Click(object sender, RoutedEventArgs e) => Unlock();
-    private void SecretBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) Unlock(); }
+    private void SecretBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Unlock(); }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void CommandBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) Execute(CommandBox.Text); }
+    private void CommandBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Execute(CommandBox.Text); }
     private void Send_Click(object sender, RoutedEventArgs e) => Execute(CommandBox.Text);
 
     private static void Open(string target) => Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
@@ -173,8 +173,8 @@ public partial class MainWindow : Window
             if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
-                var confirm = MessageBox.Show("Do you want to " + (restart ? "restart" : "shut down") + " Windows? Unsaved work may be lost.", "Confirm system action", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (confirm == MessageBoxResult.Yes) { Process.Start(new ProcessStartInfo("shutdown.exe", (restart ? "/r" : "/s") + " /t 30") { UseShellExecute = true }); Respond("Windows action scheduled in 30 seconds."); }
+                var confirm = System.Windows.MessageBox.Show("Do you want to " + (restart ? "restart" : "shut down") + " Windows? Unsaved work may be lost.", "Confirm system action", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+                if (confirm == System.Windows.MessageBoxResult.Yes) { Process.Start(new ProcessStartInfo("shutdown.exe", (restart ? "/r" : "/s") + " /t 30") { UseShellExecute = true }); Respond("Windows action scheduled in 30 seconds."); }
                 else Respond("Cancelled.");
                 return;
             }
@@ -310,7 +310,7 @@ public partial class MainWindow : Window
     private void Files_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
-        var dialog = new OpenFileDialog();
+        var dialog = new Microsoft.Win32.OpenFileDialog();
         if (dialog.ShowDialog() == true) { try { Open(dialog.FileName); Respond("Opening your selected file."); } catch (Exception ex) { Respond(ex.Message); } }
     }
     private void Tasks_Click(object sender, RoutedEventArgs e) => Respond("Custom task routines are planned, but not enabled yet.");
