@@ -909,6 +909,43 @@ public partial class MainWindow : Window
             window.Close();
         };
         panel.Children.Add(save);
+        var micTest = new System.Windows.Controls.Button { Content = "TEST MICROPHONE (3 SECONDS)", Height = 39, Margin = new Thickness(0, 8, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(14, 65, 105)) };
+        micTest.Click += async (_, _) =>
+        {
+            if (listening || voicePreparing) { Respond("Stop voice listening before testing the microphone.", false); return; }
+            if (WaveIn.DeviceCount == 0) { Respond("No microphone detected.", false); return; }
+            micTest.IsEnabled = false;
+            micTest.Content = "SPEAK NOW — TESTING INPUT";
+            try
+            {
+                double peak = 0;
+                using var test = new WaveInEvent { DeviceNumber = picker.SelectedIndex,
+                    WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
+                test.DataAvailable += (_, args) =>
+                {
+                    double sum = 0;
+                    var count = args.BytesRecorded / 2;
+                    for (int i = 0; i + 1 < args.BytesRecorded; i += 2)
+                    {
+                        var sample = (short)(args.Buffer[i] | (args.Buffer[i + 1] << 8));
+                        sum += (double)sample * sample;
+                    }
+                    var level = count > 0 ? Math.Sqrt(sum / count) / 32768.0 : 0;
+                    peak = Math.Max(peak, level);
+                };
+                test.StartRecording();
+                await Task.Delay(3000);
+                test.StopRecording();
+                Respond(peak > 0.014
+                    ? $"Microphone input detected. Peak level: {peak:P1}. Try voice commands now."
+                    : $"Microphone signal too low ({peak:P1}). Check the selected device, microphone permissions and input volume.", false);
+            }
+            catch (Exception ex) { Respond("Microphone test failed: " + ex.Message, false); }
+            finally { micTest.IsEnabled = true; micTest.Content = "TEST MICROPHONE (3 SECONDS)"; }
+        };
+        panel.Children.Add(micTest);
         var local = new System.Windows.Controls.Button { Content = "ENABLE FREE OFFLINE AI (OLLAMA)", Height = 43, Margin = new Thickness(0, 10, 0, 0),
             Foreground = System.Windows.Media.Brushes.White,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(75, 40, 134)) };
