@@ -96,6 +96,8 @@ public sealed class SetupWindow : Window
  public bool RequiresCode => !uninstall && !File.Exists(authPath);
  readonly string authPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
  readonly PasswordBox secretInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
+ readonly CheckBox resetChoice=new(){Content="Set a NEW secret code for this Windows user",Foreground=Ink,FontSize=13,Margin=new Thickness(0,8,0,7)};
+ readonly StackPanel resetFields=new(){Visibility=Visibility.Collapsed};
  readonly PasswordBox confirmInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
  string? pendingSecretCode;
  bool finished;
@@ -176,7 +178,16 @@ public sealed class SetupWindow : Window
    }
    else
    {
-    right.Children.Add(new TextBlock{Text="Your existing private code will be preserved. No new code is required for updates.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Cyan),FontSize=12,Margin=new Thickness(0,12,0,0)});
+    right.Children.Add(new TextBlock{Text="An existing local code was found. It is NOT stored in the GitHub repository.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Cyan),FontSize=12,Margin=new Thickness(0,8,0,0)});
+    right.Children.Add(resetChoice);
+    resetFields.Children.Add(new TextBlock{Text="NEW PRIVATE CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
+    resetFields.Children.Add(secretInput);
+    resetFields.Children.Add(new TextBlock{Text="CONFIRM NEW CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
+    resetFields.Children.Add(confirmInput);
+    resetFields.Children.Add(new TextBlock{Text="Changing this code replaces the saved code for your current Windows account. You must enter the new code next time you open Madi AI.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(146,190,222)),FontSize=11});
+    resetChoice.Checked+=(_,_)=>resetFields.Visibility=Visibility.Visible;
+    resetChoice.Unchecked+=(_,_)=>{resetFields.Visibility=Visibility.Collapsed;secretInput.Clear();confirmInput.Clear();};
+    right.Children.Add(resetFields);
    }
   }
   right.Children.Add(progress);
@@ -195,7 +206,7 @@ public sealed class SetupWindow : Window
  async void Primary_Click(object sender,RoutedEventArgs e)
  {
   if(finished){if(!uninstall && launch.IsChecked==true)TryLaunch();Close();return;}
-  if(!uninstall && !File.Exists(authPath))
+  if(!uninstall && (!File.Exists(authPath) || resetChoice.IsChecked==true))
   {
    if(secretInput.Password.Length<6) {status.Text="Choose a secret code of at least 6 characters before installing.";secretInput.Focus();return;}
    if(secretInput.Password!=confirmInput.Password) {status.Text="Secret codes do not match. Please enter both again.";confirmInput.Focus();return;}
@@ -255,7 +266,7 @@ public sealed class SetupWindow : Window
 
  void Install()
  {
-  if(!File.Exists(authPath) && string.IsNullOrWhiteSpace(pendingSecretCode)) throw new InvalidOperationException("Create a private secret code before installation.");
+  if((!File.Exists(authPath) || resetChoice.IsChecked==true) && string.IsNullOrWhiteSpace(pendingSecretCode)) throw new InvalidOperationException("Create a private secret code before installation.");
   Directory.CreateDirectory(target);
   using var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("MadiAI.Payload") ?? throw new FileNotFoundException("Embedded app package not found.");
   using var archive=new ZipArchive(resource,ZipArchiveMode.Read);
@@ -276,7 +287,7 @@ public sealed class SetupWindow : Window
   key.SetValue("NoModify",1,RegistryValueKind.DWord);
   key.SetValue("NoRepair",1,RegistryValueKind.DWord);
   key.SetValue("InstallLocation",target);
-  if(!File.Exists(authPath))
+  if(!File.Exists(authPath) || resetChoice.IsChecked==true)
   {
    var code=pendingSecretCode ?? throw new InvalidOperationException("Secret code is required.");
    var salt=RandomNumberGenerator.GetBytes(16);
@@ -284,7 +295,12 @@ public sealed class SetupWindow : Window
    Directory.CreateDirectory(Path.GetDirectoryName(authPath)!);
    var temp=authPath+".new";
    File.WriteAllText(temp,JsonSerializer.Serialize(new {salt=Convert.ToBase64String(salt),hash=Convert.ToBase64String(hash)}));
-   File.Move(temp,authPath,false);
+   if(File.Exists(authPath))
+   {
+    // Explicitly requested replacement: keep original code until the new hash is ready.
+    File.Replace(temp,authPath,null);
+   }
+   else File.Move(temp,authPath,false);
   }
   pendingSecretCode=null;
  }
