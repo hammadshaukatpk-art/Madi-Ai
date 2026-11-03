@@ -80,8 +80,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.4-alpha
-          name: Madi AI v0.2.4 Alpha - Setup reset, Chrome profiles and voice diagnostics
+          tag_name: v0.2.5-alpha
+          name: Madi AI v0.2.5 Alpha - WPF installer thread fix and improved reference UI
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
