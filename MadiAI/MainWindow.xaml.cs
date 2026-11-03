@@ -56,6 +56,8 @@ public partial class MainWindow : Window
     private int speechFrames;
     private int micDeviceNumber;
     private List<ChromeProfile>? pendingChromeProfiles;
+    private string pendingChromeUrl = "https://www.google.com";
+    private string pendingChromeService = "Google";
     private bool voicePreparing;
     private bool chatPending;
     private readonly List<(string Role, string Content)> chatHistory = new();
@@ -228,16 +230,20 @@ public partial class MainWindow : Window
             {
                 ShowAppPicker(); return;
             }
-            if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { Open("https://www.youtube.com"); Respond("Opening YouTube."); return; }
-            if (text.Contains("whatsapp") || text.Contains("واٹس ایپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("واٹس ایپ"))
+            if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
+            if (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप"))
             {
-                if (TryLaunchShortcut("WhatsApp", out _)) { Respond("Opening WhatsApp."); return; }
-                try { Open("whatsapp:"); Respond("Opening WhatsApp."); return; } catch { }
-                Open("https://web.whatsapp.com"); Respond("WhatsApp desktop wasn't found. Opening WhatsApp Web."); return;
+                if (text.Contains("desktop") || text.Contains("app only") || text.Contains("ڈیسک ٹاپ") || text.Contains("डेस्कटॉप"))
+                {
+                    if (TryLaunchShortcut("WhatsApp", out _)) Respond("Opening WhatsApp desktop.");
+                    else Respond("WhatsApp desktop was not found. Say open WhatsApp to choose a Chrome profile.");
+                }
+                else OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", text);
+                return;
             }
-            if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { Open("https://www.aliexpress.com"); Respond("Opening AliExpress."); return; }
-            if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { Open("https://www.ebay.com"); Respond("Opening eBay."); return; }
-            if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { Open("https://www.canva.com"); Respond("Opening Canva."); return; }
+            if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
+            if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
+            if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
             if (text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
             if (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र"))
             { OpenGoogleWithProfile(text); return; }
@@ -432,18 +438,19 @@ public partial class MainWindow : Window
         return dirs.Select(d => Path.Combine(d, "Google", "Chrome", "Application", "chrome.exe"))
             .FirstOrDefault(File.Exists);
     }
-    private void OpenGoogleWithProfile(string command)
+    private void OpenGoogleWithProfile(string command) => OpenWebWithProfile("Google", "https://www.google.com", command);
+    private void OpenWebWithProfile(string service, string url, string command)
     {
         var chrome = FindChrome();
         if (chrome == null)
         {
-            Open("https://www.google.com");
-            Respond("Opening Google in your default browser. Google Chrome is not installed.");
+            Open(url);
+            Respond("Opening " + service + " in your default browser. Google Chrome is not installed.");
             return;
         }
         var profiles = GetChromeProfiles();
         ChromeProfile? selected = null;
-        var named = Regex.Match(command, @"(?:profile|پروفائل|प्रोफ़ाइल)\s*([0-9]+)", RegexOptions.IgnoreCase);
+        var named = Regex.Match(command, @"(?:profile|پروفائل|प्रोफ़ाइल|प्रोफाइल)\s*(?:number\s*)?([0-9]+)", RegexOptions.IgnoreCase);
         if (named.Success)
         {
             var n = named.Groups[1].Value;
@@ -453,16 +460,18 @@ public partial class MainWindow : Window
         if (selected == null && profiles.Count > 1)
         {
             pendingChromeProfiles = profiles;
+            pendingChromeUrl = url;
+            pendingChromeService = service;
             var options = string.Join(", ", profiles.Take(8).Select((p, i) => $"Profile {i + 1}: {p.Name}"));
-            Respond("Which Google Chrome profile should I open? " + options + ". Say profile 1, profile 2, or the profile name.");
+            Respond("Which Chrome profile for " + service + "? " + options + ". Say profile 1, profile 2, or the profile name.");
             return;
         }
         else selected ??= profiles.FirstOrDefault();
         var start = new ProcessStartInfo(chrome) { UseShellExecute = false };
         if (selected != null) start.ArgumentList.Add("--profile-directory=" + selected.Folder);
-        start.ArgumentList.Add("https://www.google.com");
+        start.ArgumentList.Add(url);
         Process.Start(start);
-        Respond(selected == null ? "Opening Google Chrome." : "Opening Google Chrome profile " + selected.Name + ".");
+        Respond(selected == null ? "Opening " + service + " in Chrome." : "Opening " + service + " in Chrome profile " + selected.Name + ".");
     }
     private bool TrySelectPendingChromeProfile(string command)
     {
@@ -473,7 +482,7 @@ public partial class MainWindow : Window
             ["one"]=1,["two"]=2,["three"]=3,["four"]=4,["five"]=5,
             ["एक"]=1,["दो"]=2,["तीन"]=3,["چار"]=4,["ایک"]=1,["دو"]=2,["تین"]=3
         };
-        var match = Regex.Match(command, @"(?:profile|پروفائل|प्रोफाइल|प्रोफ़ाइल)\s*(\d+|one|two|three|four|five|एक|दो|तीन|ایک|دو|تین)", RegexOptions.IgnoreCase);
+        var match = Regex.Match(command, @"(?:(?:profile|پروفائل|प्रोफाइल|प्रोफ़ाइल)\s*(?:number\s*)?)?(\d+|one|two|three|four|five|एक|दो|तीन|ایک|دو|تین)", RegexOptions.IgnoreCase);
         int index = -1;
         if (match.Success)
         {
@@ -487,14 +496,16 @@ public partial class MainWindow : Window
             return false;
         }
         pendingChromeProfiles = null;
+        var targetUrl = pendingChromeUrl;
+        var serviceName = pendingChromeService;
         var chrome = FindChrome();
         if (chrome == null) { Respond("Google Chrome is no longer installed."); return true; }
         var selected = profiles[index];
         var start = new ProcessStartInfo(chrome) { UseShellExecute = false };
         start.ArgumentList.Add("--profile-directory=" + selected.Folder);
-        start.ArgumentList.Add("https://www.google.com");
+        start.ArgumentList.Add(targetUrl);
         Process.Start(start);
-        Respond("Opening Google Chrome with " + selected.Name + " profile.");
+        Respond("Opening " + serviceName + " in Chrome profile " + selected.Name + ".");
         return true;
     }
     private void LaunchInstalledApp(string requested)
