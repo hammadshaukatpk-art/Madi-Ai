@@ -17,7 +17,11 @@ internal static class Program
   var smoke = args.Contains("--smoke-ui", StringComparer.OrdinalIgnoreCase);
   try
   {
-   if (args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase))
+   // The installed uninstaller is the same binary under a distinct filename.
+   // Detect that name as well as an explicit switch so double-click works.
+   var uninstallRequested = args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase)
+     || Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? "").StartsWith("Uninstall Madi AI", StringComparison.OrdinalIgnoreCase);
+   if (uninstallRequested)
    {
     var temp = Path.Combine(Path.GetTempPath(), "MadiAI-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
     File.Copy(Environment.ProcessPath!, temp, true);
@@ -54,7 +58,7 @@ internal static class Program
  static void ShowError(Exception ex)
  {
   var log = LogError(ex);
-  try { MessageBox.Show("Madi AI Setup could not start. Details were saved to:\\n" + log + "\\n\\n" + ex.Message,
+  try { MessageBox.Show("Madi AI Setup could not start. Details were saved to:\n" + log + "\n\n" + ex.Message,
     "Madi AI Setup - Startup Error", MessageBoxButton.OK, MessageBoxImage.Error); }
   catch { }
  }
@@ -154,7 +158,7 @@ public sealed class SetupWindow : Window
   var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
   Directory.CreateDirectory(menu);
   Shortcut(Path.Combine(menu,"Madi AI.lnk"),exe);
-  Shortcut(Path.Combine(menu,"Uninstall Madi AI.lnk"),Path.Combine(target,"Uninstall Madi AI.exe"));
+  Shortcut(Path.Combine(menu,"Uninstall Madi AI.lnk"),Path.Combine(target,"Uninstall Madi AI.exe"),"/uninstall");
   using var key=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
   key.SetValue("DisplayName","Madi AI");
   key.SetValue("DisplayIcon",exe);
@@ -162,12 +166,12 @@ public sealed class SetupWindow : Window
   key.SetValue("UninstallString",'"'+Path.Combine(target,"Uninstall Madi AI.exe")+'"');
   key.SetValue("InstallLocation",target);
  }
- static void Shortcut(string path,string exe)
+ static void Shortcut(string path,string exe,string arguments="")
  {
   var t=Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("Windows shortcut support unavailable.");
   dynamic shell=Activator.CreateInstance(t)!;
   dynamic link=shell.CreateShortcut(path);
-  link.TargetPath=exe;link.WorkingDirectory=Path.GetDirectoryName(exe);link.IconLocation=exe+",0";link.Save();
+  link.TargetPath=exe;link.Arguments=arguments;link.WorkingDirectory=Path.GetDirectoryName(exe);link.IconLocation=exe+",0";link.Save();
   MarshalRelease(link);MarshalRelease(shell);
  }
  static void MarshalRelease(object obj){try{if(System.Runtime.InteropServices.Marshal.IsComObject(obj))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(obj);}catch{}}
