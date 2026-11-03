@@ -93,6 +93,7 @@ public sealed class SetupWindow : Window
  static readonly Brush Panel=new SolidColorBrush(Color.FromRgb(7,25,49));
  readonly string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","MadiAI");
  readonly bool uninstall;
+ public bool RequiresCode => !uninstall && !File.Exists(authPath);
  readonly string authPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
  readonly PasswordBox secretInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
  readonly PasswordBox confirmInput=new(){Height=35,FontSize=17,Background=new SolidColorBrush(Color.FromRgb(7,32,61)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(1),Margin=new Thickness(0,4,0,7)};
