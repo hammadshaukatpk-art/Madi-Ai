@@ -27,6 +27,17 @@ internal static class Program
     return;
    }
    var uninstall = uninstallRequested || args.Contains("--smoke-uninstall-ui", StringComparer.OrdinalIgnoreCase);
+   if (args.Contains("--smoke-install-uninstall", StringComparer.OrdinalIgnoreCase))
+   {
+    try
+    {
+     var window = new SetupWindow(false);
+     System.Threading.Tasks.Task.Run(window.IntegrationTest).GetAwaiter().GetResult();
+     File.WriteAllText(Path.Combine(Path.GetTempPath(),"madi-install-integration.log"),"Install, Control Panel registration, and uninstall succeeded");
+    }
+    catch (Exception ex) { LogError(ex); Environment.ExitCode = 5; }
+    return;
+   }
    var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
    app.DispatcherUnhandledException += (_, e) =>
    {
@@ -144,6 +155,21 @@ public sealed class SetupWindow : Window
   }
  }
  void TryLaunch(){try{Process.Start(new ProcessStartInfo(Path.Combine(target,"MadiAI.exe")){UseShellExecute=true});}catch{}}
+ public void IntegrationTest()
+ {
+  Install();
+  if (!File.Exists(Path.Combine(target,"MadiAI.exe"))) throw new IOException("Installed app missing.");
+  using (var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI"))
+  {
+   if (key == null || !(key.GetValue("UninstallString")?.ToString()?.Contains("/uninstall") ?? false))
+    throw new IOException("Control Panel uninstall registration invalid.");
+  }
+  Remove();
+  if (Directory.Exists(target)) throw new IOException("Uninstall did not remove application folder.");
+  using var leftover=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
+  if (leftover != null) throw new IOException("Uninstall registry entry was not removed.");
+ }
+
  void Install()
  {
   Directory.CreateDirectory(target);
