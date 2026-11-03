@@ -80,8 +80,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.3-alpha
-          name: Madi AI v0.2.3 Alpha - First-install secret, responsive voice and profile chooser
+          tag_name: v0.2.4-alpha
+          name: Madi AI v0.2.4 Alpha - Setup reset, Chrome profiles and voice diagnostics
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
