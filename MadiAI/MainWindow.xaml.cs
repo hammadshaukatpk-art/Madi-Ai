@@ -219,12 +219,18 @@ public partial class MainWindow : Window
                 ShowAppPicker(); return;
             }
             if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { Open("https://www.youtube.com"); Respond("Opening YouTube."); return; }
-            if (text.Contains("whatsapp") || text.Contains("واٹس ایپ") || text.Contains("व्हाट्सएप")) { Open("https://web.whatsapp.com"); Respond("Opening WhatsApp Web. Personal WhatsApp call control is not supported."); return; }
+            if (text.Contains("whatsapp") || text.Contains("واٹس ایپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("واٹس ایپ"))
+            {
+                if (TryLaunchShortcut("WhatsApp", out _)) { Respond("Opening WhatsApp."); return; }
+                try { Open("whatsapp:"); Respond("Opening WhatsApp."); return; } catch { }
+                Open("https://web.whatsapp.com"); Respond("WhatsApp desktop wasn't found. Opening WhatsApp Web."); return;
+            }
             if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { Open("https://www.aliexpress.com"); Respond("Opening AliExpress."); return; }
             if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { Open("https://www.ebay.com"); Respond("Opening eBay."); return; }
             if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { Open("https://www.canva.com"); Respond("Opening Canva."); return; }
             if (text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
-            if (text.Contains("browser") || text.Contains("google") || text.Contains("براؤزر") || text.Contains("ब्राउज़र")) { Open("https://www.google.com"); Respond("Opening the browser."); return; }
+            if (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र"))
+            { OpenGoogleWithProfile(text); return; }
             if (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर")) { Open("calc.exe"); Respond("Opening Calculator."); return; }
             if (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड")) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
             if (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग")) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
@@ -232,7 +238,13 @@ public partial class MainWindow : Window
             if (text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
             if (text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
             if (text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
-            if (text.Contains("mt5") || text.Contains("metatrader")) { Respond("MT5 trading is not connected. I will not place real trades without an approved strategy and safeguards."); return; }
+            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर"))
+            {
+                if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
+                    Respond("Opening MetaTrader 5.");
+                else Respond("MetaTrader 5 wasn't found in the Start Menu. You can select its terminal64.exe using Open App.");
+                return;
+            }
             if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
             if (text.StartsWith("search ") || text.StartsWith("find ") || text.StartsWith("تلاش ") || text.StartsWith("खोजो "))
             {
@@ -293,6 +305,132 @@ public partial class MainWindow : Window
         }
         finally { foreach (var p in matches) p.Dispose(); }
     }
+    private bool TryLaunchShortcut(string requested, out string launched)
+    {
+        launched = "";
+        var folders = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.StartMenu),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu)
+        };
+        foreach (var folder in folders)
+        {
+            try
+            {
+                if (!Directory.Exists(folder)) continue;
+                var matches = Directory.EnumerateFiles(folder, "*.lnk", SearchOption.AllDirectories)
+                    .Where(p => Path.GetFileNameWithoutExtension(p).Contains(requested, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                var selected = matches.FirstOrDefault(p => Path.GetFileNameWithoutExtension(p).Equals(requested, StringComparison.OrdinalIgnoreCase))
+                    ?? matches.FirstOrDefault();
+                if (selected != null)
+                {
+                    Open(selected);
+                    launched = Path.GetFileNameWithoutExtension(selected);
+                    return true;
+                }
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+        }
+        return false;
+    }
+
+    private sealed record ChromeProfile(string Folder, string Name);
+    private static List<ChromeProfile> GetChromeProfiles()
+    {
+        var profiles = new List<ChromeProfile>();
+        var state = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Google", "Chrome", "User Data", "Local State");
+        if (!File.Exists(state)) return profiles;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(state));
+            var cache = doc.RootElement.GetProperty("profile").GetProperty("info_cache");
+            foreach (var entry in cache.EnumerateObject())
+            {
+                var name = entry.Value.TryGetProperty("name", out var n) ? n.GetString() : null;
+                profiles.Add(new ChromeProfile(entry.Name, string.IsNullOrWhiteSpace(name) ? entry.Name : name));
+            }
+        }
+        catch (JsonException) { }
+        catch (IOException) { }
+        return profiles.OrderBy(p => p.Folder == "Default" ? 0 : 1).ThenBy(p => p.Folder).ToList();
+    }
+    private static string? FindChrome()
+    {
+        var dirs = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+        };
+        return dirs.Select(d => Path.Combine(d, "Google", "Chrome", "Application", "chrome.exe"))
+            .FirstOrDefault(File.Exists);
+    }
+    private void OpenGoogleWithProfile(string command)
+    {
+        var chrome = FindChrome();
+        if (chrome == null)
+        {
+            Open("https://www.google.com");
+            Respond("Opening Google in your default browser. Google Chrome is not installed.");
+            return;
+        }
+        var profiles = GetChromeProfiles();
+        ChromeProfile? selected = null;
+        var named = Regex.Match(command, @"(?:profile|پروفائل|प्रोफ़ाइल)\s*([0-9]+)", RegexOptions.IgnoreCase);
+        if (named.Success)
+        {
+            var n = named.Groups[1].Value;
+            selected = profiles.FirstOrDefault(p => p.Folder.Equals("Profile " + n, StringComparison.OrdinalIgnoreCase))
+                ?? profiles.FirstOrDefault(p => p.Name.Equals(n, StringComparison.OrdinalIgnoreCase));
+        }
+        if (selected == null && profiles.Count > 1)
+        {
+            Respond("Which Google Chrome profile should I open?");
+            selected = ChooseChromeProfile(profiles);
+            if (selected == null) { Respond("Chrome profile selection cancelled.", false); return; }
+        }
+        else selected ??= profiles.FirstOrDefault();
+        var start = new ProcessStartInfo(chrome) { UseShellExecute = false };
+        if (selected != null) start.ArgumentList.Add("--profile-directory=" + selected.Folder);
+        start.ArgumentList.Add("https://www.google.com");
+        Process.Start(start);
+        Respond(selected == null ? "Opening Google Chrome." : "Opening Google Chrome profile " + selected.Name + ".");
+    }
+    private ChromeProfile? ChooseChromeProfile(List<ChromeProfile> profiles)
+    {
+        var dialog = new Window
+        {
+            Title = "Madi AI • Google Chrome profiles", Width = 440, Height = 370,
+            MinWidth = 400, MinHeight = 310, WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this, Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 19, 39)),
+            Foreground = System.Windows.Media.Brushes.White
+        };
+        var stack = new StackPanel { Margin = new Thickness(22) };
+        stack.Children.Add(new TextBlock { Text = "SELECT GOOGLE CHROME PROFILE", FontSize = 19, FontWeight = FontWeights.Bold, Foreground = System.Windows.Media.Brushes.Cyan, Margin = new Thickness(0, 0, 0, 14) });
+        var list = new ListBox
+        {
+            Height = 220, Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(9, 34, 65)),
+            Foreground = System.Windows.Media.Brushes.White, BorderBrush = System.Windows.Media.Brushes.DeepSkyBlue,
+            FontSize = 17, DisplayMemberPath = "Name", ItemsSource = profiles, SelectedIndex = 0
+        };
+        var style = new Style(typeof(ListBoxItem));
+        style.Setters.Add(new Setter(Control.ForegroundProperty, System.Windows.Media.Brushes.White));
+        style.Setters.Add(new Setter(Control.BackgroundProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(9, 34, 65))));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 8, 12, 8)));
+        list.ItemContainerStyle = style;
+        stack.Children.Add(list);
+        var open = new Button { Content = "OPEN SELECTED PROFILE", Height = 42, Margin = new Thickness(0, 12, 0, 0),
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(20, 92, 155)),
+            Foreground = System.Windows.Media.Brushes.White };
+        open.Click += (_, _) => { dialog.DialogResult = true; dialog.Close(); };
+        stack.Children.Add(open);
+        dialog.Content = stack;
+        return dialog.ShowDialog() == true ? list.SelectedItem as ChromeProfile : null;
+    }
+
     private void LaunchInstalledApp(string requested)
     {
         if (string.IsNullOrWhiteSpace(requested)) { ShowAppPicker(); return; }
@@ -601,7 +739,7 @@ public partial class MainWindow : Window
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
-    private void Browser_Click(object sender, RoutedEventArgs e) => Execute("open browser");
+    private void Browser_Click(object sender, RoutedEventArgs e) => Execute("open google");
     private void Youtube_Click(object sender, RoutedEventArgs e) => Execute("open youtube");
     private void Whatsapp_Click(object sender, RoutedEventArgs e) => Execute("open whatsapp");
     private void Ebay_Click(object sender, RoutedEventArgs e) => Execute("open ebay");
