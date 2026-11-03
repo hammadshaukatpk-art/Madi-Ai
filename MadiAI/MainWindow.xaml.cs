@@ -429,38 +429,6 @@ public partial class MainWindow : Window
         Respond("Opening Google Chrome with " + selected.Name + " profile.");
         return true;
     }
-    private ChromeProfile? ChooseChromeProfile(List<ChromeProfile> profiles)
-    {
-        var dialog = new Window
-        {
-            Title = "Madi AI • Google Chrome profiles", Width = 440, Height = 370,
-            MinWidth = 400, MinHeight = 310, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Owner = this, Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 19, 39)),
-            Foreground = System.Windows.Media.Brushes.White
-        };
-        var stack = new StackPanel { Margin = new Thickness(22) };
-        stack.Children.Add(new TextBlock { Text = "SELECT GOOGLE CHROME PROFILE", FontSize = 19, FontWeight = FontWeights.Bold, Foreground = System.Windows.Media.Brushes.Cyan, Margin = new Thickness(0, 0, 0, 14) });
-        var list = new ListBox
-        {
-            Height = 220, Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(9, 34, 65)),
-            Foreground = System.Windows.Media.Brushes.White, BorderBrush = System.Windows.Media.Brushes.DeepSkyBlue,
-            FontSize = 17, DisplayMemberPath = "Name", ItemsSource = profiles, SelectedIndex = 0
-        };
-        var style = new Style(typeof(ListBoxItem));
-        style.Setters.Add(new Setter(Control.ForegroundProperty, System.Windows.Media.Brushes.White));
-        style.Setters.Add(new Setter(Control.BackgroundProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(9, 34, 65))));
-        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 8, 12, 8)));
-        list.ItemContainerStyle = style;
-        stack.Children.Add(list);
-        var open = new Button { Content = "OPEN SELECTED PROFILE", Height = 42, Margin = new Thickness(0, 12, 0, 0),
-            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(20, 92, 155)),
-            Foreground = System.Windows.Media.Brushes.White };
-        open.Click += (_, _) => { dialog.DialogResult = true; dialog.Close(); };
-        stack.Children.Add(open);
-        dialog.Content = stack;
-        return dialog.ShowDialog() == true ? list.SelectedItem as ChromeProfile : null;
-    }
-
     private void LaunchInstalledApp(string requested)
     {
         if (string.IsNullOrWhiteSpace(requested)) { ShowAppPicker(); return; }
