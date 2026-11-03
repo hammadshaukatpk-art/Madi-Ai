@@ -1,4 +1,4 @@
-<Window x:Class="MadiAI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Madi AI" Width="1648" Height="928" MinWidth="1060" MinHeight="620" WindowStartupLocation="CenterScreen" Background="#020914" Foreground="#E5F6FF" FontFamily="Segoe UI" WindowStyle="None" ResizeMode="CanResize">
+<Window x:Class="MadiAI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Madi AI" Width="1180" Height="700" MinWidth="800" MinHeight="480" WindowStartupLocation="CenterScreen" Background="#020914" Foreground="#E5F6FF" FontFamily="Segoe UI" WindowStyle="None" ResizeMode="CanResize">
 <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/></shell:WindowChrome.WindowChrome>
 <Window.Resources>
  <SolidColorBrush x:Key="Panel" Color="#071629"/>
@@ -44,13 +44,13 @@
   <Border Width="308" Height="354" Canvas.Left="243" Canvas.Top="295" Style="{StaticResource PanelStyle}">
    <StackPanel>
     <TextBlock Style="{StaticResource GlowText}" Text="✦  Active Modules" Margin="0,0,0,10"/>
-    <TextBlock Text="●  Voice Assistant" Foreground="#62E9FF" Margin="8,7"/>
+    <TextBlock Text="●  Voice Assistant (setup required)" Foreground="#62E9FF" Margin="8,7"/>
     <TextBlock Text="●  App Control" Margin="8,7"/>
-    <TextBlock Text="●  Web Automation" Margin="8,7"/>
+    <TextBlock Text="●  Web links and search" Margin="8,7"/>
     <TextBlock Text="◌  Trading (MT5) — planned" Margin="8,7" Foreground="#9EADC1"/>
     <TextBlock Text="◌  eBay / AliExpress — planned" Margin="8,7" Foreground="#9EADC1"/>
     <TextBlock Text="◌  WhatsApp bridge — planned" Margin="8,7" Foreground="#9EADC1"/>
-    <TextBlock Text="●  YouTube Control" Margin="8,7"/>
+    <TextBlock Text="●  YouTube launcher" Margin="8,7"/>
     <TextBlock Text="◌  Canva Automation — planned" Margin="8,7" Foreground="#9EADC1"/>
    </StackPanel>
   </Border>
@@ -78,15 +78,15 @@
   <Border Width="478" Height="358" Canvas.Left="1150" Canvas.Top="295" Style="{StaticResource PanelStyle}">
    <StackPanel>
     <TextBlock Style="{StaticResource GlowText}" Text="✦  My Capabilities" Margin="0,0,0,11"/>
-    <TextBlock Text="✓  Open and control supported Windows apps" Margin="6,8"/>
+    <TextBlock Text="✓  Launch supported Windows apps" Margin="6,8"/>
     <TextBlock Text="✓  Search web and open online services" Margin="6,8"/>
-    <TextBlock Text="✓  English / Hindi / Urdu voice transcription*" Margin="6,8"/>
+    <TextBlock Text="◌  English / Hindi / Urdu transcription*" Margin="6,8"/>
     <TextBlock Text="✓  File selection and screenshots" Margin="6,8"/>
     <TextBlock Text="◌  MT5 trading automation — not enabled" Margin="6,8" Foreground="#9EADC1"/>
     <TextBlock Text="◌  eBay and AliExpress — not enabled" Margin="6,8" Foreground="#9EADC1"/>
     <TextBlock Text="◌  WhatsApp calls — not supported" Margin="6,8" Foreground="#9EADC1"/>
     <TextBlock Text="◌  General offline AI chat — planned" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="* Local speech model downloads on first use" Foreground="#6C9EBA" FontSize="12" Margin="6,9"/>
+    <TextBlock Text="* Voice model requires a first-use download" Foreground="#6C9EBA" FontSize="12" Margin="6,9"/>
    </StackPanel>
   </Border>
   <Border Width="845" Height="74" Canvas.Left="453" Canvas.Top="689" Background="#E1071830" CornerRadius="40" BorderBrush="#1D9CDB" BorderThickness="2">
