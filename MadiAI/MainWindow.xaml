@@ -101,7 +101,7 @@
   <Border Width="308" Height="354" Canvas.Left="243" Canvas.Top="295" Style="{StaticResource PanelStyle}">
    <StackPanel>
     <TextBlock Style="{StaticResource GlowText}" Text="✦  Active Modules" Margin="0,0,0,10"/>
-    <TextBlock Text="●  Voice Assistant (setup required)" Foreground="#62E9FF" Margin="8,7"/>
+    <TextBlock Text="●  Voice Assistant (speech model)" Foreground="#62E9FF" Margin="8,7"/>
     <TextBlock Text="●  App Control" Margin="8,7"/>
     <TextBlock Text="●  Web links and search" Margin="8,7"/>
     <TextBlock Text="◌  Trading (MT5) — not connected" Margin="8,7" Foreground="#9EADC1"/>
@@ -169,7 +169,7 @@
     <Ellipse Width="429" Height="429" Stroke="#9C4FFF" StrokeThickness="4" StrokeDashArray="25,10,5,9" Opacity=".90"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="214" CenterY="214"/></Ellipse.RenderTransform></Ellipse>
     <Ellipse Width="371" Height="371" Stroke="#20D8FF" StrokeThickness="2" StrokeDashArray="11,6" Opacity=".84"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="185" CenterY="185"/></Ellipse.RenderTransform></Ellipse>
     <Ellipse Width="337" Height="337" Stroke="#1748A4" StrokeThickness="1" Opacity=".65"/>
-    <Image Source="/assistant.png" Width="403" Height="414" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+    <Image Source="/assistant.png" Width="565" Height="555" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,-9,0,0"/>
     <Ellipse Width="380" Height="30" Stroke="#1279FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,15" Opacity=".65"/>
     <Ellipse Width="300" Height="20" Stroke="#22E6FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,20" Opacity=".94"/>
     <Ellipse Width="220" Height="10" Stroke="#9556FF" StrokeThickness="3" VerticalAlignment="Bottom" Margin="0,0,0,24" Opacity=".85"/>
@@ -197,16 +197,27 @@
     <TextBlock Text="◌  MT5 trading automation — not enabled" Margin="6,8" Foreground="#9EADC1"/>
     <TextBlock Text="◌  eBay and AliExpress — not enabled" Margin="6,8" Foreground="#9EADC1"/>
     <TextBlock Text="◌  WhatsApp calls — not supported" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  General offline AI chat — planned" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="* Voice model requires a first-use download" Foreground="#6C9EBA" FontSize="14" Margin="6,9"/>
+    <TextBlock Text="◌  Offline AI chat — enable in Settings" Margin="6,8" Foreground="#9EADC1"/>
+    <TextBlock Text="* Free local speech engine; accuracy varies by microphone" Foreground="#6C9EBA" FontSize="14" Margin="6,9"/>
    </StackPanel>
   </Border>
   <Border Width="845" Height="74" Canvas.Left="453" Canvas.Top="689" Background="#E1071830" CornerRadius="40" BorderBrush="#1D9CDB" BorderThickness="2">
    <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="94"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <TextBox x:Name="CommandBox" Grid.Column="0" Background="Transparent" BorderThickness="0" Foreground="#DDEEFF" FontSize="18" Padding="22,21" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type or speak a command" Text=""/>
-    <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="35" Background="#114E87" Foreground="#C7F7FF" BorderBrush="#25D7FF" BorderThickness="2" Click="Voice_Click" Cursor="Hand"/>
-    <Button Grid.Column="2" Content="➤  SEND" Background="Transparent" Foreground="#70DFFF" BorderThickness="0" Click="Send_Click" Cursor="Hand"/>
+     <TextBlock Grid.Column="0" Text="Say a command..." Foreground="#8AABC4" FontSize="19" VerticalAlignment="Center" Margin="24,0,0,0" IsHitTestVisible="False">
+      <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=CommandBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+     </TextBlock>
+    <Button x:Name="MicButton" Grid.Column="1" Width="108" Height="108" Content="🎙" FontSize="51" Background="#0D497B" Foreground="#D4FAFF" BorderBrush="#24DCFF" BorderThickness="3" Click="Voice_Click" Cursor="Hand" Margin="0,-18,0,-18" Panel.ZIndex="5">
+      <Button.Template><ControlTemplate TargetType="Button"><Grid>
+       <Ellipse Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="4">
+        <Ellipse.Effect><DropShadowEffect Color="#00CAFF" BlurRadius="29" ShadowDepth="0" Opacity=".95"/></Ellipse.Effect>
+       </Ellipse>
+       <Ellipse Margin="10" Stroke="#9E72FF" StrokeThickness="2" Opacity=".85"/>
+       <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Grid></ControlTemplate></Button.Template>
+     </Button>
+    <Button Grid.Column="2" Content="➤  SEND" HorizontalAlignment="Right" Width="122" Background="Transparent" Foreground="#70DFFF" BorderThickness="0" Click="Send_Click" Cursor="Hand"/>
    </Grid>
   </Border>
   <UniformGrid Columns="10" Width="1282" Height="76" Canvas.Left="225" Canvas.Top="786">
@@ -223,9 +234,9 @@
   </UniformGrid>
   <Image Source="/madi.png" Width="48" Height="48" Canvas.Left="19" Canvas.Top="4"/>
   <TextBlock Text="Madi AI v1.0" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
-  <Image Source="/madi.png" Width="96" Height="94" Canvas.Left="767" Canvas.Top="-7"/>
-  <TextBlock Text="Madi AI" FontSize="47" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="744" Canvas.Top="83"/>
-  <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="707" Canvas.Top="146"/>
+  <Image Source="/madi.png" Width="124" Height="122" Canvas.Left="758" Canvas.Top="-10"/>
+  <TextBlock Text="Madi AI" FontSize="53" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="730" Canvas.Top="100"/>
+  <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="704" Canvas.Top="164"/>
   <TextBlock x:Name="ClockText" Text="--:--" FontSize="26" Canvas.Left="1400" Canvas.Top="65"/>
   <TextBlock x:Name="DateText" Text="" FontSize="12" Foreground="#9ABCD4" Canvas.Left="1412" Canvas.Top="99"/>
   <TextBlock x:Name="StatusText" Text="Ready" FontSize="14" Foreground="#63DCFF" Canvas.Left="552" Canvas.Top="882" Width="910" TextTrimming="CharacterEllipsis"/>
