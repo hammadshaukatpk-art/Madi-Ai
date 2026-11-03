@@ -174,7 +174,7 @@ public partial class MainWindow : Window
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
                 var confirm = MessageBox.Show("Do you want to " + (restart ? "restart" : "shut down") + " Windows? Unsaved work may be lost.", "Confirm system action", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (confirm == MessageBoxResult.Yes) { Open("shutdown.exe " + (restart ? "/r" : "/s") + " /t 30"); Respond("Windows action scheduled in 30 seconds."); }
+                if (confirm == MessageBoxResult.Yes) { Process.Start(new ProcessStartInfo("shutdown.exe", (restart ? "/r" : "/s") + " /t 30") { UseShellExecute = true }); Respond("Windows action scheduled in 30 seconds."); }
                 else Respond("Cancelled.");
                 return;
             }
