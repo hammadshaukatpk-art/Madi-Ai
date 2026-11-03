@@ -3,7 +3,7 @@
 <Window.Resources>
  <SolidColorBrush x:Key="Panel" Color="#071629"/>
  <SolidColorBrush x:Key="Blue" Color="#19CFFF"/>
- <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#B4081A2D"/><Setter Property="BorderBrush" Value="#186D9A"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="13"/></Style>
+ <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#E8041328"/><Setter Property="BorderBrush" Value="#158CD6"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="15"/><Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#087BFF" BlurRadius="16" ShadowDepth="0" Opacity=".32"/></Setter.Value></Setter></Style>
  <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="17"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
  <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="16"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
@@ -46,11 +46,11 @@
   <Ellipse Width="790" Height="145" Canvas.Left="470" Canvas.Top="600" Stroke="#5A36D9" StrokeThickness="2" Opacity=".24"/>
   <Line X1="225" Y1="5" X2="435" Y2="5" Stroke="#14D7FF" StrokeThickness="2"/>
   <Line X1="1320" Y1="5" X2="1640" Y2="5" Stroke="#14D7FF" StrokeThickness="2"/>
-  <Line X1="225" Y1="55" X2="1450" Y2="55" Stroke="#037AC8" StrokeThickness="1" Opacity=".65"/>
-  <Line X1="225" Y1="874" X2="1460" Y2="874" Stroke="#087CC5" StrokeThickness="1" Opacity=".6"/>
-  <Border Width="222" Height="696" Canvas.Top="59" Canvas.Left="4" Background="#D4071A2F" CornerRadius="0,0,18,18" BorderBrush="#123A5B" BorderThickness="0,0,1,1">
+  <Line X1="225" Y1="55" X2="1450" Y2="55" Stroke="#00BFFF" StrokeThickness="2" Opacity=".85"/>
+  <Line X1="225" Y1="874" X2="1460" Y2="874" Stroke="#0AAFFF" StrokeThickness="2" Opacity=".9"/>
+  <Border Width="222" Height="696" Canvas.Top="59" Canvas.Left="4" Background="#F006172D" CornerRadius="0,0,18,18" BorderBrush="#1A7CC5" BorderThickness="0,0,1,1">
    <StackPanel Margin="5,10,5,0">
-    <Button x:Name="NavHome" Style="{StaticResource MenuButton}" Content="⌂   Home" Background="#234277"/>
+    <Button x:Name="NavHome" Style="{StaticResource MenuButton}" Content="⌂   Home" Background="#254C9C" Foreground="#FFFFFF"/>
     <Button Style="{StaticResource MenuButton}" Content="♩   Voice Control" Click="Voice_Click"/>
     <Button Style="{StaticResource MenuButton}" Content="☏   AI Chat" Click="Chat_Click"/>
     <Button Style="{StaticResource MenuButton}" Content="▣   System Control" Click="System_Click"/>
@@ -113,7 +113,7 @@
   </Border>
   <Border Width="552" Height="518" Canvas.Left="555" Canvas.Top="182" Background="Transparent">
    <Grid>
-    <Ellipse Width="520" Height="520" Fill="#090B3D69" Opacity=".35">
+    <Ellipse Width="520" Height="520" Fill="#23145C9F" Opacity=".55">
      <Ellipse.Effect><BlurEffect Radius="38"/></Ellipse.Effect>
     </Ellipse>
     <Canvas Width="530" Height="475" VerticalAlignment="Center" IsHitTestVisible="False">
@@ -165,13 +165,13 @@
       <Line X1="500" Y1="226" X2="500" Y2="244" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
       <Line X1="511" Y1="198" X2="511" Y2="272" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
     </Canvas>
-    <Ellipse Width="486" Height="486" Stroke="#0C82E6" StrokeThickness="2" StrokeDashArray="13,8" Opacity=".72"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="243" CenterY="243"/></Ellipse.RenderTransform></Ellipse>
-    <Ellipse Width="429" Height="429" Stroke="#9C4FFF" StrokeThickness="4" StrokeDashArray="25,10,5,9" Opacity=".90"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="214" CenterY="214"/></Ellipse.RenderTransform></Ellipse>
-    <Ellipse Width="371" Height="371" Stroke="#20D8FF" StrokeThickness="2" StrokeDashArray="11,6" Opacity=".84"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="185" CenterY="185"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="486" Height="486" Stroke="#1A9EFF" StrokeThickness="3" StrokeDashArray="13,8" Opacity=".95"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="243" CenterY="243"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="429" Height="429" Stroke="#B55BFF" StrokeThickness="5" StrokeDashArray="25,10,5,9" Opacity=".99"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="214" CenterY="214"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="371" Height="371" Stroke="#32ECFF" StrokeThickness="3" StrokeDashArray="11,6" Opacity=".95"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="185" CenterY="185"/></Ellipse.RenderTransform></Ellipse>
     <Ellipse Width="337" Height="337" Stroke="#1748A4" StrokeThickness="1" Opacity=".65"/>
-    <Image Source="/assistant.png" Width="565" Height="555" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,-9,0,0"/>
-    <Ellipse Width="380" Height="30" Stroke="#1279FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,15" Opacity=".65"/>
-    <Ellipse Width="300" Height="20" Stroke="#22E6FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,20" Opacity=".94"/>
+    <Image Source="/assistant.png" Width="555" Height="545" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,-25,0,0"><Image.Effect><DropShadowEffect Color="#16BBFF" BlurRadius="27" ShadowDepth="0" Opacity=".7"/></Image.Effect></Image>
+    <Ellipse Width="470" Height="50" Stroke="#1279FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,7" Opacity=".85"/>
+    <Ellipse Width="340" Height="25" Stroke="#22E6FF" StrokeThickness="5" VerticalAlignment="Bottom" Margin="0,0,0,20" Opacity="1"/>
     <Ellipse Width="220" Height="10" Stroke="#9556FF" StrokeThickness="3" VerticalAlignment="Bottom" Margin="0,0,0,24" Opacity=".85"/>
     <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" Foreground="#8CEBFF" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,-4"/>
    </Grid>
@@ -201,7 +201,7 @@
     <TextBlock Text="* Free local speech engine; accuracy varies by microphone" Foreground="#6C9EBA" FontSize="14" Margin="6,9"/>
    </StackPanel>
   </Border>
-  <Border Width="845" Height="74" Canvas.Left="453" Canvas.Top="689" Background="#E1071830" CornerRadius="40" BorderBrush="#1D9CDB" BorderThickness="2">
+  <Border Width="870" Height="74" Canvas.Left="445" Canvas.Top="689" Background="#F0061732" CornerRadius="40" BorderBrush="#29BFFF" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#058BFF" BlurRadius="22" ShadowDepth="0" Opacity=".65"/></Border.Effect>
    <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <TextBox x:Name="CommandBox" Grid.Column="0" Background="Transparent" BorderThickness="0" Foreground="#DDEEFF" FontSize="18" Padding="22,21" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type or speak a command" Text=""/>
@@ -232,10 +232,10 @@
    <Button Style="{StaticResource TileButton}" Content="◎&#10;ChatGPT" Click="ChatGpt_Click"/>
    <Button Style="{StaticResource TileButton}" Content="＋&#10;Add" Click="Apps_Click"/>
   </UniformGrid>
-  <Image Source="/madi.png" Width="48" Height="48" Canvas.Left="19" Canvas.Top="4"/>
+  <TextBlock Text="◉" Foreground="#22CFFF" FontSize="37" Canvas.Left="22" Canvas.Top="3"/>
   <TextBlock Text="Madi AI v1.0" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
-  <Image Source="/madi.png" Width="124" Height="122" Canvas.Left="758" Canvas.Top="-10"/>
-  <TextBlock Text="Madi AI" FontSize="53" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="730" Canvas.Top="100"/>
+  <Image Source="/madi.png" Width="124" Height="122" Canvas.Left="758" Canvas.Top="-10"><Image.Effect><DropShadowEffect Color="#168CFF" BlurRadius="20" ShadowDepth="0" Opacity=".65"/></Image.Effect></Image>
+  <TextBlock Text="Madi AI" FontSize="58" FontWeight="Bold" Foreground="#EAF8FF" Canvas.Left="730" Canvas.Top="100"/>
   <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="704" Canvas.Top="164"/>
   <TextBlock x:Name="ClockText" Text="--:--" FontSize="26" Canvas.Left="1400" Canvas.Top="65"/>
   <TextBlock x:Name="DateText" Text="" FontSize="12" Foreground="#9ABCD4" Canvas.Left="1412" Canvas.Top="99"/>
