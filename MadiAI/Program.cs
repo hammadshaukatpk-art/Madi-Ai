@@ -3,6 +3,15 @@ using System.Windows;
 namespace MadiAI;
 internal static class Program
 {
+    private static async System.Threading.Tasks.Task<string> TranscribeSmokeSample(
+        Whisper.net.WhisperProcessor processor, string path)
+    {
+        using var stream = System.IO.File.OpenRead(path);
+        var text = new System.Text.StringBuilder();
+        await foreach (var segment in processor.ProcessAsync(stream))
+            text.Append(segment.Text).Append(' ');
+        return text.ToString().Trim();
+    }
     [STAThread]
     private static void Main(string[] args)
     {
@@ -14,8 +23,36 @@ internal static class Program
                 if (!System.IO.File.Exists(model)) throw new System.IO.FileNotFoundException("Bundled voice model is missing.", model);
                 using var factory = Whisper.net.WhisperFactory.FromPath(model);
                 using var processor = factory.CreateBuilder().WithLanguage("en").Build();
-                System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-voice-smoke.log"),
-                    "Whisper multilingual model and native runtime initialized successfully");
+                var log = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-voice-smoke.log");
+                var details = "Whisper multilingual model and native runtime initialized successfully";
+                // End-to-end inference: generate a real 16 kHz voice sample on Windows
+                // and transcribe it through the same Whisper processor as the desktop UI.
+                using (var voice = new System.Speech.Synthesis.SpeechSynthesizer())
+                {
+                    if (voice.GetInstalledVoices().Any(v => v.Enabled))
+                    {
+                        var wav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-voice-smoke-input.wav");
+                        try
+                        {
+                            voice.SetOutputToWaveFile(wav,
+                                new System.Speech.AudioFormat.SpeechAudioFormatInfo(
+                                    16000, System.Speech.AudioFormat.AudioBitsPerSample.Sixteen,
+                                    System.Speech.AudioFormat.AudioChannel.Mono));
+                            voice.Speak("Open calculator");
+                            voice.SetOutputToNull();
+                            var timer = System.Diagnostics.Stopwatch.StartNew();
+                            var recognized = TranscribeSmokeSample(processor, wav).GetAwaiter().GetResult();
+                            timer.Stop();
+                            details += Environment.NewLine + "Synthetic spoken command: " + recognized +
+                                "; recognition seconds: " + timer.Elapsed.TotalSeconds.ToString("F2");
+                            if (string.IsNullOrWhiteSpace(recognized))
+                                throw new InvalidOperationException("Speech engine returned no transcription for synthetic spoken command.");
+                        }
+                        finally { try { System.IO.File.Delete(wav); } catch { } }
+                    }
+                    else details += Environment.NewLine + "No installed Windows TTS voice; synthetic audio test unavailable.";
+                }
+                System.IO.File.WriteAllText(log, details);
             }
             catch (Exception ex)
             {
