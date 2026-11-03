@@ -4,7 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   push:
-    branches: [fix/uninstall-voice-layout]
+    branches: [fix/first-install-voice-v3]
   workflow_dispatch:
 jobs:
   validate:
@@ -98,3 +98,5 @@ jobs:
           $source = Get-Content SetupHost/Program.cs -Raw
           if ($source -notmatch 'UninstallString.*/uninstall') { throw 'Control Panel uninstall argument is missing' }
           if ($source -notmatch 'launchedAsUninstaller') { throw 'Uninstaller name detection missing' }
+          if ($source -notmatch 'Install\(string\? code\)') { throw 'First-install secret code setup is missing' }
+          if ($source -notmatch 'Rfc2898DeriveBytes.Pbkdf2') { throw 'Local secret hashing is missing' }
