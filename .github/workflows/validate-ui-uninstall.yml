@@ -31,6 +31,16 @@ jobs:
           Write-Host "Bundled speech model: $($model.Length) bytes"
           Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
           dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Verify offline speech engine initializes with bundled model
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-voice-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-voice' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Voice engine initialization timed out' }
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Voice engine failed: $($p.ExitCode)" }
+          if (-not (Select-String -Path $log -Pattern 'initialized successfully' -Quiet)) { throw 'Speech runtime did not initialize' }
       - name: Run isolated app and setup UI checks
         shell: pwsh
         run: |
