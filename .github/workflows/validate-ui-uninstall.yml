@@ -4,7 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   push:
-    branches: [fix/uninstall-voice-layout]
+    branches: [fix/uninstall-voice-layout, fix/installer-voice-profiles-reference-ui]
   workflow_dispatch:
 jobs:
   validate:
