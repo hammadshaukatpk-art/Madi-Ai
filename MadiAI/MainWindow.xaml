@@ -13,6 +13,10 @@
  <Canvas>
   <Rectangle Width="1648" Height="928"><Rectangle.Fill><RadialGradientBrush Center=".51,.59" GradientOrigin=".51,.57" RadiusX=".73" RadiusY=".83"><GradientStop Color="#102D54" Offset="0"/><GradientStop Color="#051528" Offset=".55"/><GradientStop Color="#020712" Offset="1"/></RadialGradientBrush></Rectangle.Fill></Rectangle>
   <Ellipse Width="1280" Height="250" Canvas.Left="200" Canvas.Top="770" Stroke="#0C6599" StrokeThickness="2" Opacity=".25"/>
+  <Ellipse Width="1040" Height="220" Canvas.Left="345" Canvas.Top="570" Stroke="#0F91DF" StrokeThickness="2" Opacity=".28"/>
+  <Ellipse Width="790" Height="145" Canvas.Left="470" Canvas.Top="600" Stroke="#5A36D9" StrokeThickness="2" Opacity=".24"/>
+  <Line X1="225" Y1="5" X2="435" Y2="5" Stroke="#14D7FF" StrokeThickness="2"/>
+  <Line X1="1320" Y1="5" X2="1640" Y2="5" Stroke="#14D7FF" StrokeThickness="2"/>
   <Line X1="225" Y1="55" X2="1450" Y2="55" Stroke="#037AC8" StrokeThickness="1" Opacity=".65"/>
   <Line X1="225" Y1="874" X2="1460" Y2="874" Stroke="#087CC5" StrokeThickness="1" Opacity=".6"/>
   <Border Width="222" Height="696" Canvas.Top="59" Canvas.Left="4" Background="#D4071A2F" CornerRadius="0,0,18,18" BorderBrush="#123A5B" BorderThickness="0,0,1,1">
@@ -47,21 +51,76 @@
     <TextBlock Text="●  Voice Assistant (setup required)" Foreground="#62E9FF" Margin="8,7"/>
     <TextBlock Text="●  App Control" Margin="8,7"/>
     <TextBlock Text="●  Web links and search" Margin="8,7"/>
-    <TextBlock Text="◌  Trading (MT5) — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  Trading (MT5) — not connected" Margin="8,7" Foreground="#9EADC1"/>
     <TextBlock Text="◌  eBay / AliExpress — planned" Margin="8,7" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  WhatsApp bridge — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  WhatsApp integration — not connected" Margin="8,7" Foreground="#9EADC1"/>
     <TextBlock Text="●  YouTube launcher" Margin="8,7"/>
-    <TextBlock Text="◌  Canva Automation — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  Canva automation — not connected" Margin="8,7" Foreground="#9EADC1"/>
    </StackPanel>
   </Border>
-  <Border Width="534" Height="508" Canvas.Left="566" Canvas.Top="184" Background="Transparent">
+  <Border Width="552" Height="518" Canvas.Left="555" Canvas.Top="182" Background="Transparent">
    <Grid>
-    <Ellipse Width="465" Height="465" Stroke="#0C82E6" StrokeThickness="2" StrokeDashArray="12,9" Opacity=".65"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="232" CenterY="232"/></Ellipse.RenderTransform></Ellipse>
-    <Ellipse Width="405" Height="405" Stroke="#835AFF" StrokeThickness="3" StrokeDashArray="23,9,5,8"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="202" CenterY="202"/></Ellipse.RenderTransform></Ellipse>
-    <Ellipse Width="345" Height="345" Stroke="#22D9FF" StrokeThickness="2" StrokeDashArray="10,7" Opacity=".8"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="172" CenterY="172"/></Ellipse.RenderTransform></Ellipse>
-    <Image Source="/assistant.png" Width="346" Height="375" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-    <Ellipse Width="230" Height="22" Stroke="#27C9FF" StrokeThickness="3" VerticalAlignment="Bottom" Margin="0,0,0,18" Opacity=".75"/>
-    <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" Foreground="#82E8FF" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,0"/>
+    <Ellipse Width="520" Height="520" Fill="#090B3D69" Opacity=".35">
+     <Ellipse.Effect><System.Windows.Media.Effects:BlurEffect xmlns:System.Windows.Media.Effects="clr-namespace:System.Windows.Media.Effects;assembly=PresentationCore" Radius="38"/></Ellipse.Effect>
+    </Ellipse>
+    <Canvas Width="530" Height="475" VerticalAlignment="Center" IsHitTestVisible="False">
+      <Line X1="5" Y1="227" X2="5" Y2="243" Stroke="#B15BFF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="16" Y1="202" X2="16" Y2="268" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="27" Y1="192" X2="27" Y2="278" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="38" Y1="214" X2="38" Y2="256" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="49" Y1="225" X2="49" Y2="245" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="60" Y1="215" X2="60" Y2="255" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="71" Y1="221" X2="71" Y2="249" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="82" Y1="227" X2="82" Y2="243" Stroke="#B15BFF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="93" Y1="227" X2="93" Y2="243" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="104" Y1="220" X2="104" Y2="250" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="115" Y1="215" X2="115" Y2="255" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="126" Y1="225" X2="126" Y2="245" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="137" Y1="213" X2="137" Y2="257" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="148" Y1="191" X2="148" Y2="279" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="159" Y1="203" X2="159" Y2="267" Stroke="#B15BFF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="170" Y1="227" X2="170" Y2="243" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="181" Y1="200" X2="181" Y2="270" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="192" Y1="192" X2="192" Y2="278" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="203" Y1="215" X2="203" Y2="255" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="214" Y1="224" X2="214" Y2="246" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="225" Y1="215" X2="225" Y2="255" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="236" Y1="221" X2="236" Y2="249" Stroke="#B15BFF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="247" Y1="227" X2="247" Y2="243" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="258" Y1="226" X2="258" Y2="244" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="269" Y1="220" X2="269" Y2="250" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="280" Y1="216" X2="280" Y2="254" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="291" Y1="226" X2="291" Y2="244" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="302" Y1="212" X2="302" Y2="258" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="313" Y1="191" X2="313" Y2="279" Stroke="#B15BFF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="324" Y1="204" X2="324" Y2="266" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="335" Y1="226" X2="335" Y2="244" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="346" Y1="199" X2="346" Y2="271" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="357" Y1="192" X2="357" Y2="278" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="368" Y1="216" X2="368" Y2="254" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="379" Y1="224" X2="379" Y2="246" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="390" Y1="215" X2="390" Y2="255" Stroke="#B15BFF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="401" Y1="221" X2="401" Y2="249" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="412" Y1="227" X2="412" Y2="243" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="423" Y1="226" X2="423" Y2="244" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="434" Y1="220" X2="434" Y2="250" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="445" Y1="216" X2="445" Y2="254" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="456" Y1="226" X2="456" Y2="244" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="467" Y1="211" X2="467" Y2="259" Stroke="#B15BFF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="478" Y1="191" X2="478" Y2="279" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="489" Y1="205" X2="489" Y2="265" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+      <Line X1="500" Y1="226" X2="500" Y2="244" Stroke="#18D8FF" StrokeThickness="3" Opacity=".88"/>
+      <Line X1="511" Y1="198" X2="511" Y2="272" Stroke="#18D8FF" StrokeThickness="2" Opacity=".88"/>
+    </Canvas>
+    <Ellipse Width="486" Height="486" Stroke="#0C82E6" StrokeThickness="2" StrokeDashArray="13,8" Opacity=".72"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="243" CenterY="243"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="429" Height="429" Stroke="#9C4FFF" StrokeThickness="4" StrokeDashArray="25,10,5,9" Opacity=".90"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="214" CenterY="214"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="371" Height="371" Stroke="#20D8FF" StrokeThickness="2" StrokeDashArray="11,6" Opacity=".84"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="185" CenterY="185"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="337" Height="337" Stroke="#1748A4" StrokeThickness="1" Opacity=".65"/>
+    <Image Source="/assistant.png" Width="403" Height="414" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+    <Ellipse Width="380" Height="30" Stroke="#1279FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,15" Opacity=".65"/>
+    <Ellipse Width="300" Height="20" Stroke="#22E6FF" StrokeThickness="4" VerticalAlignment="Bottom" Margin="0,0,0,20" Opacity=".94"/>
+    <Ellipse Width="220" Height="10" Stroke="#9556FF" StrokeThickness="3" VerticalAlignment="Bottom" Margin="0,0,0,24" Opacity=".85"/>
+    <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" Foreground="#8CEBFF" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,-4"/>
    </Grid>
   </Border>
   <Border Width="528" Height="146" Canvas.Left="1105" Canvas.Top="121" Style="{StaticResource PanelStyle}">
@@ -110,10 +169,10 @@
    <Button Style="{StaticResource TileButton}" Content="＋&#10;Add" Click="Apps_Click"/>
   </UniformGrid>
   <Image Source="/madi.png" Width="48" Height="48" Canvas.Left="19" Canvas.Top="4"/>
-  <TextBlock Text="Madi AI v2" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
+  <TextBlock Text="Madi AI v1.0" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
   <Image Source="/madi.png" Width="96" Height="94" Canvas.Left="767" Canvas.Top="-7"/>
-  <TextBlock Text="Madi AI" FontSize="43" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="733" Canvas.Top="91"/>
-  <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="688" Canvas.Top="146"/>
+  <TextBlock Text="Madi AI" FontSize="47" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="744" Canvas.Top="83"/>
+  <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="707" Canvas.Top="146"/>
   <TextBlock x:Name="ClockText" Text="--:--" FontSize="26" Canvas.Left="1400" Canvas.Top="65"/>
   <TextBlock x:Name="DateText" Text="" FontSize="12" Foreground="#9ABCD4" Canvas.Left="1412" Canvas.Top="99"/>
   <TextBlock x:Name="StatusText" Text="Ready" FontSize="14" Foreground="#63DCFF" Canvas.Left="552" Canvas.Top="882" Width="910" TextTrimming="CharacterEllipsis"/>
