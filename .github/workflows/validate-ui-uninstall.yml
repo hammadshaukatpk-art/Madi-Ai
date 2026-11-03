@@ -26,12 +26,14 @@ jobs:
       - name: Build Madi AI and setup
         shell: pwsh
         run: |
-          dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+          dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish
           New-Item -ItemType Directory -Path publish/models -Force | Out-Null
           Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin' -OutFile publish/models/ggml-tiny.bin -MaximumRedirection 10
           $model = Get-Item publish/models/ggml-tiny.bin
           if ($model.Length -lt 20000000) { throw 'Bundled voice model download incomplete' }
           Write-Host "Bundled speech model: $($model.Length) bytes"
+          Write-Host "Native speech libraries:"
+          Get-ChildItem publish -Recurse -Filter "*whisper*" | Select-Object FullName,Length | Format-Table
           Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
           dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
       - name: Verify offline speech engine initializes with bundled model
