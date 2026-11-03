@@ -14,17 +14,49 @@ internal static class Program
 {
  [STAThread] static void Main(string[] args)
  {
-  if (args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase))
+  try
   {
-   // Run the uninstaller outside the install directory so all installed files can be removed.
-   var temp = Path.Combine(Path.GetTempPath(), "MadiAI-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
-   File.Copy(Environment.ProcessPath!, temp, true);
-   Process.Start(new ProcessStartInfo(temp, "/uninstall-temp") { UseShellExecute = true });
-   return;
+   if (args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase))
+   {
+    var temp = Path.Combine(Path.GetTempPath(), "MadiAI-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
+    File.Copy(Environment.ProcessPath!, temp, true);
+    Process.Start(new ProcessStartInfo(temp, "/uninstall-temp") { UseShellExecute = true });
+    return;
+   }
+   var uninstall = args.Contains("/uninstall-temp", StringComparer.OrdinalIgnoreCase);
+   var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
+   app.DispatcherUnhandledException += (_, e) =>
+   {
+    ShowError(e.Exception);
+    e.Handled = true;
+    app.Shutdown(1);
+   };
+   AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+   {
+    if (e.ExceptionObject is Exception ex) LogError(ex);
+   };
+   app.Run(new SetupWindow(uninstall));
   }
-  var uninstall = args.Contains("/uninstall-temp", StringComparer.OrdinalIgnoreCase);
-  var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
-  app.Run(new SetupWindow(uninstall));
+  catch (Exception ex) { ShowError(ex); }
+ }
+ static void ShowError(Exception ex)
+ {
+  var log = LogError(ex);
+  try { MessageBox.Show("Madi AI Setup could not start. Details were saved to:\\n" + log + "\\n\\n" + ex.Message,
+    "Madi AI Setup - Startup Error", MessageBoxButton.OK, MessageBoxImage.Error); }
+  catch { }
+ }
+ static string LogError(Exception ex)
+ {
+  var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
+  var file = Path.Combine(folder, "setup-crash.log");
+  try
+  {
+   Directory.CreateDirectory(folder);
+   File.AppendAllText(file, DateTime.Now.ToString("O") + Environment.NewLine + ex + Environment.NewLine + Environment.NewLine);
+  }
+  catch { }
+  return file;
  }
 }
 public sealed class SetupWindow : Window
@@ -55,7 +87,16 @@ public sealed class SetupWindow : Window
   header.Children.Add(new TextBlock{Text="◈  MADI AI  /  "+(remove?"UNINSTALL":"SETUP"),FontWeight=FontWeights.Bold,FontSize=15,Foreground=new SolidColorBrush(Cyan),VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(22,0,22,0)});
   var close=new Button{Content="×",Width=50,FontSize=27,Foreground=Ink,Background=Brushes.Transparent,BorderThickness=new Thickness(0),HorizontalAlignment=HorizontalAlignment.Right,Cursor=System.Windows.Input.Cursors.Hand};close.Click+=(_,_)=>Close();header.Children.Add(close);
   var body=new StackPanel{Margin=new Thickness(82,12,82,12),HorizontalAlignment=HorizontalAlignment.Stretch};Grid.SetRow(body,1);grid.Children.Add(body);
-  body.Children.Add(new Image{Source=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/madi.png")),Width=118,Height=118,HorizontalAlignment=HorizontalAlignment.Center});
+  try
+  {
+   body.Children.Add(new Image { Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/madi.png")),
+    Width = 118, Height = 118, HorizontalAlignment = HorizontalAlignment.Center });
+  }
+  catch
+  {
+   body.Children.Add(new TextBlock { Text = "◈", FontSize = 88, Foreground = new SolidColorBrush(Cyan),
+    HorizontalAlignment = HorizontalAlignment.Center });
+  }
   title.Text=remove?"Uninstall Madi AI":"Welcome to Madi AI Setup";body.Children.Add(title);
   subtitle.Text=remove?"Remove the application while keeping your personal secret-code profile.":"Your personal Windows AI assistant • Native desktop edition";subtitle.Margin=new Thickness(0,10,0,8);body.Children.Add(subtitle);
   status.Text=remove?"Click Uninstall to remove the Madi AI application.":"The application will be installed automatically. No CMD setup or paid API key is required.";
