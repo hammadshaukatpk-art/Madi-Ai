@@ -1,8 +1,7 @@
-name: Build Native Madi AI
+name: Build Madi AI Windows
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 jobs:
   build:
@@ -14,7 +13,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Publish native WPF desktop app
+      - name: Generate HD branding
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check pillow
+          python tools/generate_assets.py
+      - name: Publish native Madi AI
         shell: pwsh
         run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
       - name: Install NSIS

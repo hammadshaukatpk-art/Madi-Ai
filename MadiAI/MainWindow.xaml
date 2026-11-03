@@ -1,0 +1,145 @@
+<Window x:Class="MadiAI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Madi AI" Width="1648" Height="928" MinWidth="1060" MinHeight="620" WindowStartupLocation="CenterScreen" Background="#020914" Foreground="#E5F6FF" FontFamily="Segoe UI" WindowStyle="None" ResizeMode="CanResize">
+<shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/></shell:WindowChrome.WindowChrome>
+<Window.Resources>
+ <SolidColorBrush x:Key="Panel" Color="#071629"/>
+ <SolidColorBrush x:Key="Blue" Color="#19CFFF"/>
+ <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#B4081A2D"/><Setter Property="BorderBrush" Value="#186D9A"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="13"/></Style>
+ <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="15"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
+ <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="13"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
+</Window.Resources>
+<Viewbox Stretch="Uniform">
+<Grid Width="1648" Height="928" Background="#030B19">
+ <Canvas>
+  <Rectangle Width="1648" Height="928"><Rectangle.Fill><RadialGradientBrush Center=".51,.59" GradientOrigin=".51,.57" RadiusX=".73" RadiusY=".83"><GradientStop Color="#102D54" Offset="0"/><GradientStop Color="#051528" Offset=".55"/><GradientStop Color="#020712" Offset="1"/></RadialGradientBrush></Rectangle.Fill></Rectangle>
+  <Ellipse Width="1280" Height="250" Canvas.Left="200" Canvas.Top="770" Stroke="#0C6599" StrokeThickness="2" Opacity=".25"/>
+  <Line X1="225" Y1="55" X2="1450" Y2="55" Stroke="#037AC8" StrokeThickness="1" Opacity=".65"/>
+  <Line X1="225" Y1="874" X2="1460" Y2="874" Stroke="#087CC5" StrokeThickness="1" Opacity=".6"/>
+  <Border Width="222" Height="696" Canvas.Top="59" Canvas.Left="4" Background="#D4071A2F" CornerRadius="0,0,18,18" BorderBrush="#123A5B" BorderThickness="0,0,1,1">
+   <StackPanel Margin="5,10,5,0">
+    <Button x:Name="NavHome" Style="{StaticResource MenuButton}" Content="⌂   Home" Background="#234277"/>
+    <Button Style="{StaticResource MenuButton}" Content="♩   Voice Control" Click="Voice_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="☏   AI Chat" Click="Chat_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▣   System Control" Click="System_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▦   Apps &amp; Automation" Click="Apps_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="◎   Web &amp; Research" Click="Web_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▥   Trading (MT5)" Click="Mt5_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="◈   eBay Automation" Click="Ebay_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="🛒   AliExpress Hunting" Click="Ali_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▶   YouTube Control" Click="Youtube_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="◉   Canva Design" Click="Canva_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="◉   WhatsApp" Click="Whatsapp_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▱   Files &amp; Folders" Click="Files_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="▦   Tasks &amp; Routines" Click="Tasks_Click"/>
+    <Button Style="{StaticResource MenuButton}" Content="⚙   Settings" Click="Settings_Click"/>
+   </StackPanel>
+  </Border>
+  <Border Width="346" Height="151" Canvas.Left="251" Canvas.Top="120" Style="{StaticResource PanelStyle}">
+   <StackPanel><TextBlock Style="{StaticResource GlowText}" Text="🟢  System Status"/><UniformGrid Columns="3" Margin="4,13,4,0">
+     <StackPanel><TextBlock Text="CPU" HorizontalAlignment="Center" Foreground="#59CFFF"/><TextBlock x:Name="CpuValue" Text="—" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"/></StackPanel>
+     <StackPanel><TextBlock Text="RAM" HorizontalAlignment="Center" Foreground="#59CFFF"/><TextBlock x:Name="RamValue" Text="—" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"/></StackPanel>
+     <StackPanel><TextBlock Text="DISK" HorizontalAlignment="Center" Foreground="#59CFFF"/><TextBlock x:Name="DiskValue" Text="—" HorizontalAlignment="Center" FontSize="29" FontWeight="Bold"/></StackPanel>
+   </UniformGrid></StackPanel>
+  </Border>
+  <Border Width="308" Height="354" Canvas.Left="243" Canvas.Top="295" Style="{StaticResource PanelStyle}">
+   <StackPanel>
+    <TextBlock Style="{StaticResource GlowText}" Text="✦  Active Modules" Margin="0,0,0,10"/>
+    <TextBlock Text="●  Voice Assistant" Foreground="#62E9FF" Margin="8,7"/>
+    <TextBlock Text="●  App Control" Margin="8,7"/>
+    <TextBlock Text="●  Web Automation" Margin="8,7"/>
+    <TextBlock Text="◌  Trading (MT5) — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  eBay / AliExpress — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  WhatsApp bridge — planned" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="●  YouTube Control" Margin="8,7"/>
+    <TextBlock Text="◌  Canva Automation — planned" Margin="8,7" Foreground="#9EADC1"/>
+   </StackPanel>
+  </Border>
+  <Border Width="534" Height="508" Canvas.Left="566" Canvas.Top="184" Background="Transparent">
+   <Grid>
+    <Ellipse Width="465" Height="465" Stroke="#0C82E6" StrokeThickness="2" StrokeDashArray="12,9" Opacity=".65"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="232" CenterY="232"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="405" Height="405" Stroke="#835AFF" StrokeThickness="3" StrokeDashArray="23,9,5,8"><Ellipse.RenderTransform><RotateTransform x:Name="RingTwo" CenterX="202" CenterY="202"/></Ellipse.RenderTransform></Ellipse>
+    <Ellipse Width="345" Height="345" Stroke="#22D9FF" StrokeThickness="2" StrokeDashArray="10,7" Opacity=".8"><Ellipse.RenderTransform><RotateTransform x:Name="RingThree" CenterX="172" CenterY="172"/></Ellipse.RenderTransform></Ellipse>
+    <Image Source="/assistant.png" Width="346" Height="375" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    <Ellipse Width="230" Height="22" Stroke="#27C9FF" StrokeThickness="3" VerticalAlignment="Bottom" Margin="0,0,0,18" Opacity=".75"/>
+    <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" Foreground="#82E8FF" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,0"/>
+   </Grid>
+  </Border>
+  <Border Width="528" Height="146" Canvas.Left="1105" Canvas.Top="121" Style="{StaticResource PanelStyle}">
+   <StackPanel><TextBlock Style="{StaticResource GlowText}" Text="◈  Quick Actions" Margin="0,0,0,9"/>
+   <UniformGrid Columns="6" Height="88">
+    <Button Style="{StaticResource TileButton}" Content="▣&#10;Open App" Click="Apps_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="⌕&#10;Search" Click="Web_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▦&#10;Calculate" Click="Calc_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▱&#10;Open File" Click="Files_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▣&#10;Screenshot" Click="Screenshot_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="◉&#10;Record" Click="Voice_Click"/>
+   </UniformGrid></StackPanel>
+  </Border>
+  <Border Width="478" Height="358" Canvas.Left="1150" Canvas.Top="295" Style="{StaticResource PanelStyle}">
+   <StackPanel>
+    <TextBlock Style="{StaticResource GlowText}" Text="✦  My Capabilities" Margin="0,0,0,11"/>
+    <TextBlock Text="✓  Open and control supported Windows apps" Margin="6,8"/>
+    <TextBlock Text="✓  Search web and open online services" Margin="6,8"/>
+    <TextBlock Text="✓  English / Hindi / Urdu voice transcription*" Margin="6,8"/>
+    <TextBlock Text="✓  File selection and screenshots" Margin="6,8"/>
+    <TextBlock Text="◌  MT5 trading automation — not enabled" Margin="6,8" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  eBay and AliExpress — not enabled" Margin="6,8" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  WhatsApp calls — not supported" Margin="6,8" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  General offline AI chat — planned" Margin="6,8" Foreground="#9EADC1"/>
+    <TextBlock Text="* Local speech model downloads on first use" Foreground="#6C9EBA" FontSize="12" Margin="6,9"/>
+   </StackPanel>
+  </Border>
+  <Border Width="845" Height="74" Canvas.Left="453" Canvas.Top="689" Background="#E1071830" CornerRadius="40" BorderBrush="#1D9CDB" BorderThickness="2">
+   <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="94"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+    <TextBox x:Name="CommandBox" Grid.Column="0" Background="Transparent" BorderThickness="0" Foreground="#DDEEFF" FontSize="18" Padding="22,21" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type or speak a command" Text=""/>
+    <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="35" Background="#114E87" Foreground="#C7F7FF" BorderBrush="#25D7FF" BorderThickness="2" Click="Voice_Click" Cursor="Hand"/>
+    <Button Grid.Column="2" Content="➤  SEND" Background="Transparent" Foreground="#70DFFF" BorderThickness="0" Click="Send_Click" Cursor="Hand"/>
+   </Grid>
+  </Border>
+  <UniformGrid Columns="10" Width="1282" Height="76" Canvas.Left="225" Canvas.Top="786">
+   <Button Style="{StaticResource TileButton}" Content="🌐&#10;Browser" Click="Browser_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▶&#10;YouTube" Click="Youtube_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◉&#10;WhatsApp" Click="Whatsapp_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◈&#10;eBay" Click="Ebay_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="🛒&#10;AliExpress" Click="Ali_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▥&#10;MT5" Click="Mt5_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◉&#10;Canva" Click="Canva_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▣&#10;Office" Click="Office_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◎&#10;ChatGPT" Click="Chat_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="＋&#10;Add" Click="Apps_Click"/>
+  </UniformGrid>
+  <Image Source="/madi.png" Width="48" Height="48" Canvas.Left="19" Canvas.Top="4"/>
+  <TextBlock Text="Madi AI v2" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
+  <Image Source="/madi.png" Width="96" Height="94" Canvas.Left="767" Canvas.Top="-7"/>
+  <TextBlock Text="Madi AI" FontSize="43" FontWeight="Bold" Foreground="#D6F2FF" Canvas.Left="733" Canvas.Top="91"/>
+  <TextBlock Text="Your Personal AI Assistant" FontSize="19" Foreground="#B3DFFF" Canvas.Left="688" Canvas.Top="146"/>
+  <TextBlock x:Name="ClockText" Text="--:--" FontSize="26" Canvas.Left="1400" Canvas.Top="65"/>
+  <TextBlock x:Name="DateText" Text="" FontSize="12" Foreground="#9ABCD4" Canvas.Left="1412" Canvas.Top="99"/>
+  <TextBlock x:Name="StatusText" Text="Ready" FontSize="14" Foreground="#63DCFF" Canvas.Left="552" Canvas.Top="882" Width="910" TextTrimming="CharacterEllipsis"/>
+  <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="14" Foreground="#4AFF9A" Canvas.Left="1530" Canvas.Top="885"/>
+  <StackPanel Orientation="Horizontal" Canvas.Left="1333" Canvas.Top="3" Height="43">
+   <ComboBox x:Name="LanguagePicker" Width="103" SelectedIndex="0" Background="#09223A" Foreground="#E7F8FF" VerticalContentAlignment="Center" ToolTip="Speech recognition language" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+    <ComboBoxItem Content="Auto"/><ComboBoxItem Content="English"/><ComboBoxItem Content="اردو"/><ComboBoxItem Content="हिन्दी"/>
+   </ComboBox>
+   <Button Width="74" Content="START" Background="#145A88" Foreground="White" FontWeight="Bold" BorderBrush="#26DFFF" Click="Voice_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+   <Button Width="43" Content="—" FontSize="18" Background="Transparent" Foreground="White" BorderThickness="0" Click="Minimize_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+   <Button Width="43" Content="□" FontSize="20" Background="Transparent" Foreground="White" BorderThickness="0" Click="Maximize_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+   <Button Width="43" Content="×" FontSize="25" Background="#331324" Foreground="#FFB4BD" BorderThickness="0" Click="Close_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+  </StackPanel>
+ </Canvas>
+ <Grid x:Name="GateOverlay" Background="#F8030C1A">
+  <Border Width="550" Height="365" Background="#091C33" BorderBrush="#22C9FF" BorderThickness="2" CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+   <StackPanel Margin="38,24">
+    <Image Source="/madi.png" Width="100" Height="100" HorizontalAlignment="Center"/>
+    <TextBlock Text="MADI AI • SECURE ACCESS" FontSize="23" FontWeight="Bold" Foreground="#57DFFF" HorizontalAlignment="Center" Margin="0,10"/>
+    <TextBlock x:Name="GatePrompt" Text="Tell me your secret code to open me" FontSize="16" HorizontalAlignment="Center" Margin="0,7"/>
+    <PasswordBox x:Name="SecretBox" Height="40" Background="#0C2944" Foreground="White" BorderBrush="#39D3FF" FontSize="19" Margin="0,10" KeyDown="SecretBox_KeyDown"/>
+    <Button Content="UNLOCK MADI AI" Height="42" Background="#135D95" Foreground="White" FontWeight="Bold" Click="Unlock_Click" Cursor="Hand"/>
+    <TextBlock x:Name="GateHelp" Text="Your code is saved locally, not in GitHub." Foreground="#8EAEC6" FontSize="12" Margin="0,10" TextAlignment="Center"/>
+   </StackPanel>
+  </Border>
+ </Grid>
+</Grid>
+</Viewbox>
+</Window>

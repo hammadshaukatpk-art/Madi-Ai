@@ -1,4 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
-<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><ApplicationIcon>../assets/madi.ico</ApplicationIcon><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>MadiAI</AssemblyName></PropertyGroup>
-<ItemGroup><PackageReference Include="System.Speech" Version="8.0.0"/></ItemGroup>
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MadiAI</AssemblyName>
+    <ApplicationIcon>../assets/madi.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Whisper.net" Version="1.7.0" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.7.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="../assets/assistant.png" Link="assistant.png" />
+    <Resource Include="../assets/madi.png" Link="madi.png" />
+  </ItemGroup>
 </Project>
