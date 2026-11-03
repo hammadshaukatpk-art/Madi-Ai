@@ -56,7 +56,7 @@ internal static class Program
     var log = Path.Combine(Path.GetTempPath(), "madi-setup-smoke.log");
     File.WriteAllText(log, "Process entered Main at " + DateTime.UtcNow.ToString("O") + Environment.NewLine);
     var win = new SetupWindow(uninstall);
-    win.Loaded += (_, _) => File.AppendAllText(log, "WPF setup window Loaded; mode: " + (uninstall ? "uninstall" : "install") + Environment.NewLine);
+    win.Loaded += (_, _) => File.AppendAllText(log, "WPF setup window Loaded; mode: " + (uninstall ? "uninstall" : "install") + "; first-install-code: " + win.RequiresCode + Environment.NewLine);
     var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
     timer.Tick += (_, _) => { timer.Stop(); File.AppendAllText(log, "Window visible: " + win.IsVisible + "; loaded: " + win.IsLoaded + Environment.NewLine); app.Shutdown(win.IsLoaded ? 0 : 3); };
     timer.Start();
@@ -224,13 +224,20 @@ public sealed class SetupWindow : Window
  public void IntegrationTest()
  {
   var createdProfile=!File.Exists(authPath);
-  if(createdProfile) pendingSecretCode=Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
+  var testCode=createdProfile?Convert.ToHexString(RandomNumberGenerator.GetBytes(24)):null;
+  pendingSecretCode=testCode;
   Install();
   if(!File.Exists(authPath)) throw new IOException("Installer did not create secret code profile.");
   using(var document=JsonDocument.Parse(File.ReadAllText(authPath)))
   {
-   if(document.RootElement.GetProperty("salt").GetString() is null || document.RootElement.GetProperty("hash").GetString() is null)
-    throw new IOException("Secret code profile format invalid.");
+   var salt=Convert.FromBase64String(document.RootElement.GetProperty("salt").GetString()!);
+   var saved=Convert.FromBase64String(document.RootElement.GetProperty("hash").GetString()!);
+   if(salt.Length!=16 || saved.Length!=32) throw new IOException("Secret code profile format invalid.");
+   if(createdProfile)
+   {
+    var calculated=Rfc2898DeriveBytes.Pbkdf2(testCode!,salt,200000,HashAlgorithmName.SHA256,32);
+    if(!CryptographicOperations.FixedTimeEquals(saved,calculated)) throw new IOException("Saved secret code hash does not verify.");
+   }
   }
   if (!File.Exists(Path.Combine(target,"MadiAI.exe"))) throw new IOException("Installed app missing.");
   using (var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI"))
