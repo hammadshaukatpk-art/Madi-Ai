@@ -141,7 +141,7 @@ public partial class MainWindow : Window
     private static string Normalize(string raw)
     {
         var s = raw.Trim().ToLowerInvariant();
-        foreach (var prefix in new[] { "please ", "madi ", "madi ai ", "hey madi ", "یار ", "براہ کرم ", "कृपया " })
+        foreach (var prefix in new[] { "hey madi ai ", "hey madi ", "madi ai ", "madi ", "please ", "یار ", "براہ کرم ", "कृपया " })
             if (s.StartsWith(prefix)) s = s[prefix.Length..];
         return s;
     }
@@ -154,6 +154,26 @@ public partial class MainWindow : Window
         {
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
+            if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
+            { PressMediaKey(0xAF); Respond("Volume increased.", false); return; }
+            if (text is "volume down" or "decrease volume" or "آواز کم کرو" or "आवाज़ कम करो")
+            { PressMediaKey(0xAE); Respond("Volume decreased.", false); return; }
+            if (text is "mute" or "unmute" or "mute volume" or "خاموش" or "म्यूट")
+            { PressMediaKey(0xAD); Respond("Toggled system mute.", false); return; }
+            if (text is "play pause" or "pause music" or "resume music")
+            { PressMediaKey(0xB3); Respond("Toggled media playback.", false); return; }
+            if (text is "lock pc" or "lock computer" or "lock windows")
+            { LockWorkStation(); return; }
+            if (text is "open task manager" or "task manager")
+            { Open("taskmgr.exe"); Respond("Opening Task Manager."); return; }
+            if (text is "open downloads" or "downloads folder")
+            { Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")); Respond("Opening Downloads."); return; }
+            if (text is "open documents" or "documents folder")
+            { Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)); Respond("Opening Documents."); return; }
+            if (text is "open pictures" or "pictures folder")
+            { Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)); Respond("Opening Pictures."); return; }
+            if (text.StartsWith("close app "))
+            { CloseInstalledApp(text[10..].Trim()); return; }
             if (text.StartsWith("search youtube ") || text.StartsWith("youtube search "))
             {
                 var query = text.StartsWith("search youtube ") ? text[15..] : text[15..];
@@ -227,6 +247,37 @@ public partial class MainWindow : Window
             Respond("I heard: " + raw + ". I don't have a safe action for that request yet.");
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
+    }
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extraInfo);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool LockWorkStation();
+    private static void PressMediaKey(byte key)
+    {
+        keybd_event(key, 0, 0, UIntPtr.Zero);
+        keybd_event(key, 0, 2, UIntPtr.Zero);
+    }
+    private void CloseInstalledApp(string requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested) || requested.Length > 70)
+        { Respond("Please specify the app to close."); return; }
+        var matches = Process.GetProcesses()
+            .Where(p => p.ProcessName.Equals(requested, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        try
+        {
+            if (matches.Count == 0) { Respond("No running app matched " + requested); return; }
+            if (matches.Count > 1) { Respond("Several processes match. Close the app manually to avoid losing work."); return; }
+            var p = matches[0];
+            var confirm = System.Windows.MessageBox.Show(
+                "Ask " + p.ProcessName + " to close? Unsaved work may require your attention.",
+                "Madi AI • Confirm close app", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes) { Respond("Cancelled."); return; }
+            if (p.CloseMainWindow()) Respond("Asked " + p.ProcessName + " to close.");
+            else Respond("This app has no window that can be closed safely.");
+        }
+        finally { foreach (var p in matches) p.Dispose(); }
     }
     private void LaunchInstalledApp(string requested)
     {
