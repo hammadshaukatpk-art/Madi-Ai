@@ -8,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using Microsoft.Win32;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace MadiSetup;
 internal static class Program
@@ -100,7 +102,7 @@ public sealed class SetupWindow : Window
  readonly TextBlock subtitle=new(){FontSize=14,Foreground=new SolidColorBrush(Color.FromRgb(137,189,224)),HorizontalAlignment=HorizontalAlignment.Center};
  public SetupWindow(bool remove)
  {
-  uninstall=remove; Title=remove?"Madi AI Uninstaller":"Madi AI Setup";Width=740;Height=550;MinWidth=740;MinHeight=550;MaxWidth=740;MaxHeight=550;
+  uninstall=remove; Title=remove?"Madi AI Uninstaller":"Madi AI Setup";Width=820;Height=640;MinWidth=820;MinHeight=640;MaxWidth=820;MaxHeight=640;
   WindowStartupLocation=WindowStartupLocation.CenterScreen;WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;Background=Brushes.Transparent;AllowsTransparency=true;
   var border=new Border{CornerRadius=new CornerRadius(18),BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(2),Background=Panel,Effect=new DropShadowEffect{Color=Colors.DeepSkyBlue,BlurRadius=28,Opacity=.32,ShadowDepth=0}};
   Content=border;
@@ -112,7 +114,7 @@ public sealed class SetupWindow : Window
   header.Children.Add(new TextBlock{Text="◈  MADI AI  /  "+(remove?"UNINSTALL":"SETUP"),FontWeight=FontWeights.Bold,FontSize=15,Foreground=new SolidColorBrush(Cyan),VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(22,0,22,0)});
   var close=new Button{Content="×",Width=50,FontSize=27,Foreground=Ink,Background=Brushes.Transparent,BorderThickness=new Thickness(0),HorizontalAlignment=HorizontalAlignment.Right,Cursor=System.Windows.Input.Cursors.Hand};close.Click+=(_,_)=>Close();header.Children.Add(close);
   var body=new Grid{Margin=new Thickness(22,20,22,18)};
-  body.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(235)});
+  body.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(260)});
   body.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});
   Grid.SetRow(body,1);grid.Children.Add(body);
   var portrait=new Border{
@@ -132,7 +134,7 @@ public sealed class SetupWindow : Window
   {
    portraitGrid.Children.Add(new Image{
     Source=new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/assistant.png")),
-    Width=218,Height=350,Stretch=Stretch.Uniform,VerticalAlignment=VerticalAlignment.Top,
+    Width=242,Height=440,Stretch=Stretch.Uniform,VerticalAlignment=VerticalAlignment.Top,
     Margin=new Thickness(0,6,0,0)
    });
   }
@@ -143,7 +145,7 @@ public sealed class SetupWindow : Window
     HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center
    });
   }
-  var right=new StackPanel{Margin=new Thickness(12,30,8,0)};
+  var right=new StackPanel{Margin=new Thickness(12,12,8,0)};
   Grid.SetColumn(right,1);body.Children.Add(right);
   title.Text=remove?"Uninstall Madi AI":"Welcome to Madi AI Setup";
   title.FontSize=27;title.TextAlignment=TextAlignment.Center;title.TextWrapping=TextWrapping.Wrap;
@@ -152,22 +154,37 @@ public sealed class SetupWindow : Window
     ?"Remove Madi AI from this PC. Your personal unlock profile will be preserved."
     :"Your Personal AI Assistant  •  Native Windows Edition";
   subtitle.TextWrapping=TextWrapping.Wrap;subtitle.TextAlignment=TextAlignment.Center;
-  subtitle.Margin=new Thickness(0,13,0,15);right.Children.Add(subtitle);
+  subtitle.Margin=new Thickness(0,9,0,10);right.Children.Add(subtitle);
   status.Text=remove
     ?"Press UNINSTALL to remove the application, shortcuts and Control Panel entry."
     :"Install the native Madi AI desktop application. No command prompt required.";
-  status.Margin=new Thickness(4,10,4,12);right.Children.Add(status);
+  status.Margin=new Thickness(4,6,4,8);right.Children.Add(status);
+  if(!remove)
+  {
+   if(!File.Exists(authPath))
+   {
+    right.Children.Add(new TextBlock{Text="CREATE YOUR PRIVATE SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12,Margin=new Thickness(0,7,0,3)});
+    right.Children.Add(secretInput);
+    right.Children.Add(new TextBlock{Text="CONFIRM SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontWeight=FontWeights.SemiBold,FontSize=12});
+    right.Children.Add(confirmInput);
+    right.Children.Add(new TextBlock{Text="Minimum 6 characters. Stored as a salted hash on this PC; never uploaded to GitHub.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(146,190,222)),FontSize=11,Margin=new Thickness(0,2,0,0)});
+   }
+   else
+   {
+    right.Children.Add(new TextBlock{Text="Your existing private code will be preserved. No new code is required for updates.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Cyan),FontSize=12,Margin=new Thickness(0,12,0,0)});
+   }
+  }
   right.Children.Add(progress);
   if(!remove)right.Children.Add(launch);
   primary.Content=remove?"UNINSTALL MADI AI":"INSTALL MADI AI";
-  primary.Margin=new Thickness(45,22,45,0);
+  primary.Margin=new Thickness(45,12,45,0);
   primary.Background=new SolidColorBrush(Color.FromRgb(93,42,174));
   primary.BorderBrush=new SolidColorBrush(Color.FromRgb(181,102,255));
   primary.Click+=Primary_Click;right.Children.Add(primary);
   right.Children.Add(new TextBlock{
    Text=remove?"REMOVE APPLICATION  •  KEEP PERSONAL CODE":"MADI AI  •  WINDOWS DESKTOP  •  LOCAL CORE",
    Foreground=new SolidColorBrush(Color.FromRgb(94,172,223)),FontSize=11,
-   HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,32,0,0)
+   HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,15,0,0)
   });
  }
  async void Primary_Click(object sender,RoutedEventArgs e)
