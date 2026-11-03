@@ -15,16 +15,18 @@ internal static class Program
  [STAThread] static void Main(string[] args)
  {
   var smoke = args.Contains("--smoke-ui", StringComparer.OrdinalIgnoreCase);
+  var launchedAsUninstaller = Path.GetFileNameWithoutExtension(Environment.ProcessPath ?? "").StartsWith("Uninstall Madi AI", StringComparison.OrdinalIgnoreCase);
+  var uninstallRequested = launchedAsUninstaller || args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase) || args.Contains("/uninstall-temp", StringComparer.OrdinalIgnoreCase);
   try
   {
-   if (args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase))
+   if (uninstallRequested && !smoke && !args.Contains("/uninstall-temp", StringComparer.OrdinalIgnoreCase))
    {
     var temp = Path.Combine(Path.GetTempPath(), "MadiAI-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
     File.Copy(Environment.ProcessPath!, temp, true);
     Process.Start(new ProcessStartInfo(temp, "/uninstall-temp") { UseShellExecute = true });
     return;
    }
-   var uninstall = args.Contains("/uninstall-temp", StringComparer.OrdinalIgnoreCase);
+   var uninstall = uninstallRequested || args.Contains("--smoke-uninstall-ui", StringComparer.OrdinalIgnoreCase);
    var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
    app.DispatcherUnhandledException += (_, e) =>
    {
@@ -40,8 +42,8 @@ internal static class Program
    {
     var log = Path.Combine(Path.GetTempPath(), "madi-setup-smoke.log");
     File.WriteAllText(log, "Process entered Main at " + DateTime.UtcNow.ToString("O") + Environment.NewLine);
-    var win = new SetupWindow(false);
-    win.Loaded += (_, _) => File.AppendAllText(log, "WPF setup window Loaded" + Environment.NewLine);
+    var win = new SetupWindow(uninstall);
+    win.Loaded += (_, _) => File.AppendAllText(log, "WPF setup window Loaded; mode: " + (uninstall ? "uninstall" : "install") + Environment.NewLine);
     var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
     timer.Tick += (_, _) => { timer.Stop(); File.AppendAllText(log, "Window visible: " + win.IsVisible + "; loaded: " + win.IsLoaded + Environment.NewLine); app.Shutdown(win.IsLoaded ? 0 : 3); };
     timer.Start();
@@ -54,7 +56,7 @@ internal static class Program
  static void ShowError(Exception ex)
  {
   var log = LogError(ex);
-  try { MessageBox.Show("Madi AI Setup could not start. Details were saved to:\\n" + log + "\\n\\n" + ex.Message,
+  try { MessageBox.Show("Madi AI Setup could not start. Details were saved to:\n" + log + "\n\n" + ex.Message,
     "Madi AI Setup - Startup Error", MessageBoxButton.OK, MessageBoxImage.Error); }
   catch { }
  }
@@ -154,7 +156,7 @@ public sealed class SetupWindow : Window
   var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
   Directory.CreateDirectory(menu);
   Shortcut(Path.Combine(menu,"Madi AI.lnk"),exe);
-  Shortcut(Path.Combine(menu,"Uninstall Madi AI.lnk"),Path.Combine(target,"Uninstall Madi AI.exe"));
+  Shortcut(Path.Combine(menu,"Uninstall Madi AI.lnk"),Path.Combine(target,"Uninstall Madi AI.exe"),"/uninstall");
   using var key=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
   key.SetValue("DisplayName","Madi AI");
   key.SetValue("DisplayIcon",exe);
@@ -162,12 +164,12 @@ public sealed class SetupWindow : Window
   key.SetValue("UninstallString",'"'+Path.Combine(target,"Uninstall Madi AI.exe")+'"');
   key.SetValue("InstallLocation",target);
  }
- static void Shortcut(string path,string exe)
+ static void Shortcut(string path,string exe,string arguments="")
  {
   var t=Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("Windows shortcut support unavailable.");
   dynamic shell=Activator.CreateInstance(t)!;
   dynamic link=shell.CreateShortcut(path);
-  link.TargetPath=exe;link.WorkingDirectory=Path.GetDirectoryName(exe);link.IconLocation=exe+",0";link.Save();
+  link.TargetPath=exe;link.Arguments=arguments;link.WorkingDirectory=Path.GetDirectoryName(exe);link.IconLocation=exe+",0";link.Save();
   MarshalRelease(link);MarshalRelease(shell);
  }
  static void MarshalRelease(object obj){try{if(System.Runtime.InteropServices.Marshal.IsComObject(obj))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(obj);}catch{}}
@@ -177,6 +179,18 @@ public sealed class SetupWindow : Window
   if(File.Exists(desktop))File.Delete(desktop);
   var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
   if(Directory.Exists(menu))Directory.Delete(menu,true);
+  foreach (var proc in Process.GetProcessesByName("MadiAI"))
+  {
+   try
+   {
+    if (string.Equals(proc.MainModule?.FileName,Path.Combine(target,"MadiAI.exe"),StringComparison.OrdinalIgnoreCase))
+    {
+     proc.CloseMainWindow();
+     if (!proc.WaitForExit(3000)) throw new IOException("Please close Madi AI before uninstalling and try again.");
+    }
+   }
+   finally { proc.Dispose(); }
+  }
   if(Directory.Exists(target))Directory.Delete(target,true);
   Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI",false);
   // The LocalAppData/MadiAI profile intentionally remains for secret-code persistence.
