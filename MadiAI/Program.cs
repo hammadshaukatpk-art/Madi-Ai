@@ -30,7 +30,14 @@ internal static class Program
             var log = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-app-smoke.log");
             System.IO.File.WriteAllText(log, "Starting Madi AI WPF" + Environment.NewLine);
             var win = new MainWindow();
-            win.Loaded += (_, _) => System.IO.File.AppendAllText(log, "Main window loaded" + Environment.NewLine);
+            win.Loaded += (_, _) =>
+            {
+                var picker = (System.Windows.Controls.ComboBox?)win.FindName("LanguagePicker");
+                if (picker == null) throw new InvalidOperationException("Language dropdown missing.");
+                picker.SelectedIndex = 2;
+                System.IO.File.AppendAllText(log, "Main window loaded; language selection: " + picker.SelectedIndex + Environment.NewLine);
+                picker.SelectedIndex = 0;
+            };
             var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
             timer.Tick += (_, _) =>
             {
