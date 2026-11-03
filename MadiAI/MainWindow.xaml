@@ -7,6 +7,35 @@
  <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="17"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
  <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="16"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
+ <Style x:Key="DarkLanguageItem" TargetType="ComboBoxItem">
+  <Setter Property="Foreground" Value="#E8FAFF"/><Setter Property="Background" Value="#081B34"/><Setter Property="Padding" Value="12,8"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+   <Border x:Name="item" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="item" Property="Background" Value="#194C82"/></Trigger>
+    <Trigger Property="IsSelected" Value="True"><Setter TargetName="item" Property="Background" Value="#2163A4"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <Style x:Key="DarkLanguageCombo" TargetType="ComboBox">
+  <Setter Property="Foreground" Value="#F0FBFF"/><Setter Property="Background" Value="#071B34"/><Setter Property="BorderBrush" Value="#23D4FF"/>
+  <Setter Property="ItemContainerStyle" Value="{StaticResource DarkLanguageItem}"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+   <Grid>
+    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="8"/>
+    <ToggleButton Background="Transparent" BorderThickness="0" Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+     <Grid><ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,27,0"/>
+      <TextBlock Text="⌄" Foreground="#37DCFF" FontSize="19" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
+     </Grid>
+    </ToggleButton>
+    <Popup x:Name="PART_Popup" IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+     <Border Background="#07182F" BorderBrush="#28D5FF" BorderThickness="1" CornerRadius="7" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+      <ScrollViewer MaxHeight="250" VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer>
+     </Border>
+    </Popup>
+   </Grid>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
 </Window.Resources>
 <Viewbox Stretch="Uniform">
 <Grid Width="1648" Height="928" Background="#030B19">
@@ -177,11 +206,11 @@
   <TextBlock x:Name="DateText" Text="" FontSize="12" Foreground="#9ABCD4" Canvas.Left="1412" Canvas.Top="99"/>
   <TextBlock x:Name="StatusText" Text="Ready" FontSize="14" Foreground="#63DCFF" Canvas.Left="552" Canvas.Top="882" Width="910" TextTrimming="CharacterEllipsis"/>
   <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="14" Foreground="#4AFF9A" Canvas.Left="1530" Canvas.Top="885"/>
-  <StackPanel Orientation="Horizontal" Canvas.Left="1333" Canvas.Top="3" Height="43">
-   <ComboBox x:Name="LanguagePicker" Width="103" SelectedIndex="0" Background="#09223A" Foreground="#E7F8FF" VerticalContentAlignment="Center" ToolTip="Speech recognition language" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-    <ComboBoxItem Content="Auto"/><ComboBoxItem Content="English"/><ComboBoxItem Content="اردو"/><ComboBoxItem Content="हिन्दी"/>
+  <StackPanel Orientation="Horizontal" Canvas.Left="1300" Canvas.Top="3" Height="43">
+   <ComboBox x:Name="LanguagePicker" Width="128" Height="36" SelectedIndex="0" Style="{StaticResource DarkLanguageCombo}" SelectionChanged="LanguagePicker_SelectionChanged" ToolTip="Speech recognition language" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+    <ComboBoxItem Content="🌐 Auto"/><ComboBoxItem Content="🇺🇸 English"/><ComboBoxItem Content="🇵🇰 اردو"/><ComboBoxItem Content="🇮🇳 हिन्दी"/>
    </ComboBox>
-   <Button Width="74" Content="START" Background="#145A88" Foreground="White" FontWeight="Bold" BorderBrush="#26DFFF" Click="Voice_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+   <Button x:Name="StartVoiceButton" Width="74" Content="START" Background="#145A88" Foreground="White" FontWeight="Bold" BorderBrush="#26DFFF" Click="Voice_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
    <Button Width="43" Content="—" FontSize="18" Background="Transparent" Foreground="White" BorderThickness="0" Click="Minimize_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
    <Button Width="43" Content="□" FontSize="20" Background="Transparent" Foreground="White" BorderThickness="0" Click="Maximize_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
    <Button Width="43" Content="×" FontSize="25" Background="#331324" Foreground="#FFB4BD" BorderThickness="0" Click="Close_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
