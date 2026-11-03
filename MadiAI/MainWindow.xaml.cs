@@ -152,6 +152,38 @@ public partial class MainWindow : Window
         CommandBox.Text = "";
         try
         {
+            // Route searches before generic website launchers; a search request
+            // must not silently open the homepage instead.
+            if (text.StartsWith("search youtube ") || text.StartsWith("youtube search "))
+            {
+                var query = text.StartsWith("search youtube ") ? text[15..] : text[15..];
+                Open("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(query.Trim()));
+                Respond("Searching YouTube for " + query.Trim()); return;
+            }
+            if (text.StartsWith("search ebay ") || text.StartsWith("ebay search "))
+            {
+                var query = text.StartsWith("search ebay ") ? text[12..] : text[12..];
+                Open("https://www.ebay.com/sch/i.html?_nkw=" + Uri.EscapeDataString(query.Trim()));
+                Respond("Searching eBay for " + query.Trim()); return;
+            }
+            if (text.StartsWith("search web ") || text.StartsWith("search google "))
+            {
+                var query = text.StartsWith("search web ") ? text[11..] : text[14..];
+                Open("https://www.google.com/search?q=" + Uri.EscapeDataString(query.Trim()));
+                Respond("Searching the web for " + query.Trim()); return;
+            }
+            if (text.StartsWith("open app ") || text.StartsWith("launch app ") || text.StartsWith("start app "))
+            {
+                LaunchInstalledApp(text[(text.IndexOf("app ", StringComparison.Ordinal) + 4)..].Trim()); return;
+            }
+            if (text.StartsWith("launch ") || text.StartsWith("start application "))
+            {
+                LaunchInstalledApp(text.StartsWith("launch ") ? text[7..].Trim() : text[18..].Trim()); return;
+            }
+            if (text is "list apps" or "installed apps" or "show apps")
+            {
+                ShowAppPicker(); return;
+            }
             if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { Open("https://www.youtube.com"); Respond("Opening YouTube."); return; }
             if (text.Contains("whatsapp") || text.Contains("واٹس ایپ") || text.Contains("व्हाट्सएप")) { Open("https://web.whatsapp.com"); Respond("Opening WhatsApp Web. Personal WhatsApp call control is not supported."); return; }
             if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { Open("https://www.aliexpress.com"); Respond("Opening AliExpress."); return; }
@@ -196,6 +228,53 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+    private void LaunchInstalledApp(string requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested)) { ShowAppPicker(); return; }
+        if (requested.Length > 80 || requested.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        { Respond("Please say the name of an installed application."); return; }
+        var folders = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.StartMenu),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu)
+        };
+        var matches = new List<string>();
+        foreach (var folder in folders)
+        {
+            try
+            {
+                if (Directory.Exists(folder))
+                    matches.AddRange(Directory.EnumerateFiles(folder, "*.lnk", SearchOption.AllDirectories)
+                        .Where(p => Path.GetFileNameWithoutExtension(p).Contains(requested, StringComparison.OrdinalIgnoreCase)));
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+        }
+        var exact = matches.FirstOrDefault(p => string.Equals(Path.GetFileNameWithoutExtension(p), requested, StringComparison.OrdinalIgnoreCase));
+        var selected = exact ?? (matches.Count == 1 ? matches[0] : null);
+        if (selected != null) { Open(selected); Respond("Opening " + Path.GetFileNameWithoutExtension(selected)); return; }
+        if (matches.Count > 1)
+        {
+            Respond("Several applications match " + requested + ". Please give a more specific name."); return;
+        }
+        Respond("I could not find " + requested + " in the Windows Start Menu. Use Open App to select it.");
+    }
+    private void ShowAppPicker()
+    {
+        if (!unlocked) return;
+        var picker = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Madi AI • Select an application",
+            Filter = "Applications and shortcuts (*.exe;*.lnk)|*.exe;*.lnk|All files (*.*)|*.*",
+            CheckFileExists = true
+        };
+        if (picker.ShowDialog() == true)
+        {
+            try { Open(picker.FileName); Respond("Opening " + Path.GetFileNameWithoutExtension(picker.FileName)); }
+            catch (Exception ex) { Respond("Unable to open application: " + ex.Message); }
+        }
+    }
+
     private void TakeScreenshot()
     {
         var folder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
@@ -401,8 +480,8 @@ public partial class MainWindow : Window
     private void Calc_Click(object sender, RoutedEventArgs e) => Execute("open calculator");
     private void Screenshot_Click(object sender, RoutedEventArgs e) => Execute("screenshot");
     private void System_Click(object sender, RoutedEventArgs e) => Execute("open settings");
-    private void Apps_Click(object sender, RoutedEventArgs e) => Respond("Say an app name, for example: open calculator, notepad, Word or browser.");
-    private void Web_Click(object sender, RoutedEventArgs e) => Respond("Say search followed by your search words.");
+    private void Apps_Click(object sender, RoutedEventArgs e) => ShowAppPicker();
+    private void Web_Click(object sender, RoutedEventArgs e) => Execute("open browser");
     private void Files_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
