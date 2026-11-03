@@ -101,7 +101,8 @@ public partial class MainWindow : Window
     private void Unlock()
     {
         var code = SecretBox.Password;
-        if (code.Length < 6) { GateHelp.Text = "Use at least 6 characters."; return; }
+        if (!File.Exists(AuthFile) && code.Length < 6) { GateHelp.Text = "Use at least 6 characters for a new code."; return; }
+        if (File.Exists(AuthFile) && code.Length == 0) { GateHelp.Text = "Enter your saved secret code."; return; }
         try
         {
             if (File.Exists(AuthFile))
