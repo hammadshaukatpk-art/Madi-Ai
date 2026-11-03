@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private DateTime firstSpeech;
     private DateTime lastSpeech;
     private int speechFrames;
+    private int micDeviceNumber;
     private List<ChromeProfile>? pendingChromeProfiles;
     private bool voicePreparing;
     private bool chatPending;
@@ -67,6 +68,17 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        try
+        {
+            var settingsFile = Path.Combine(profile, "settings.json");
+            if (File.Exists(settingsFile))
+            {
+                using var config = JsonDocument.Parse(File.ReadAllText(settingsFile));
+                if (config.RootElement.TryGetProperty("microphone", out var mic))
+                    micDeviceNumber = mic.GetInt32();
+            }
+        }
+        catch (Exception) { micDeviceNumber = 0; }
         GatePrompt.Text = File.Exists(AuthFile) ? "Enter your private secret code" : "Secret code not configured";
         GateHelp.Text = File.Exists(AuthFile) ? "Use the code you created in Madi AI Setup. It is stored only on this PC." : "Please run Madi AI Setup to create your secret code before using the app.";
         Loaded += (_, _) => { Animate(); SecretBox.Focus(); };
@@ -608,6 +620,7 @@ public partial class MainWindow : Window
             if (voiceFactory == null) voiceFactory = await Task.Run(() => WhisperFactory.FromPath(ModelFile));
             if (WaveIn.DeviceCount == 0)
                 throw new InvalidOperationException("No microphone was found. Connect a microphone and enable Windows microphone access.");
+            if (micDeviceNumber >= WaveIn.DeviceCount || micDeviceNumber < 0) micDeviceNumber = 0;
             listening = true;
             ListenStatus.Text = "● Listening";
             CoreState.Text = "MADI AI • LISTENING";
@@ -699,7 +712,7 @@ public partial class MainWindow : Window
         lastSpeech = DateTime.MinValue;
         speechFrames = 0;
         Interlocked.Exchange(ref stopRequested, 0);
-        microphone = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
+        microphone = new WaveInEvent { DeviceNumber = micDeviceNumber, WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
         waveWriter = new WaveFileWriter(currentRecording, microphone.WaveFormat);
         microphone.DataAvailable += (_, e) =>
         {
@@ -815,5 +828,55 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true) { try { Open(dialog.FileName); Respond("Opening your selected file."); } catch (Exception ex) { Respond(ex.Message); } }
     }
     private void Tasks_Click(object sender, RoutedEventArgs e) => Respond("Custom task routines are planned, but not enabled yet.");
-    private void Settings_Click(object sender, RoutedEventArgs e) => Respond("Your secret code stays on this computer and is preserved across application updates. Voice language can be selected at the top right.");
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        if (!unlocked) return;
+        var window = new Window
+        {
+            Title = "Madi AI • Settings", Width = 570, Height = 440,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
+            Foreground = System.Windows.Media.Brushes.White
+        };
+        var panel = new StackPanel { Margin = new Thickness(25) };
+        panel.Children.Add(new TextBlock { Text = "MADI AI • AUDIO & PRIVACY", FontSize = 21, FontWeight = FontWeights.Bold,
+            Foreground = System.Windows.Media.Brushes.Cyan, Margin = new Thickness(0, 0, 0, 18) });
+        panel.Children.Add(new TextBlock { Text = "Microphone input device", FontSize = 15, Margin = new Thickness(0, 0, 0, 7) });
+        var devices = new List<string>();
+        for (int i = 0; i < WaveIn.DeviceCount; i++)
+            devices.Add(WaveIn.GetCapabilities(i).ProductName);
+        if (devices.Count == 0) devices.Add("No microphone detected");
+        var picker = new System.Windows.Controls.ComboBox
+        {
+            Height = 40, Width = 475, ItemsSource = devices, SelectedIndex = Math.Clamp(micDeviceNumber, 0, devices.Count - 1),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53)),
+            BorderBrush = System.Windows.Media.Brushes.DeepSkyBlue
+        };
+        if (TryFindResource("DarkLanguageCombo") is Style comboStyle) picker.Style = comboStyle;
+        panel.Children.Add(picker);
+        panel.Children.Add(new TextBlock { Text = "Speech recognition: English, Urdu, Hindi or Auto (top-right selector).",
+            FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 15, 0, 8) });
+        var installed = speaker.GetInstalledVoices().Where(v => v.Enabled)
+            .Select(v => v.VoiceInfo.Culture.Name).Distinct().ToList();
+        panel.Children.Add(new TextBlock { Text = "Windows spoken voice languages: " + (installed.Count == 0 ? "none" : string.Join(", ", installed)),
+            FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 8) });
+        panel.Children.Add(new TextBlock { Text = "Secret code: salted hash in your local Windows profile. No code is stored in GitHub.",
+            FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 15) });
+        var save = new System.Windows.Controls.Button { Content = "SAVE MICROPHONE SELECTION", Height = 43,
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(28, 91, 161)) };
+        save.Click += (_, _) =>
+        {
+            if (WaveIn.DeviceCount == 0) { Respond("Connect a microphone first.", false); return; }
+            micDeviceNumber = picker.SelectedIndex;
+            File.WriteAllText(Path.Combine(profile, "settings.json"), JsonSerializer.Serialize(new { microphone = micDeviceNumber }));
+            Respond("Microphone saved. Stop and restart voice listening to use the selected device.", false);
+            window.Close();
+        };
+        panel.Children.Add(save);
+        window.Content = panel;
+        window.ShowDialog();
+    }
 }
