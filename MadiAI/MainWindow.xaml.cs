@@ -498,7 +498,16 @@ public partial class MainWindow : Window
             processingAudio = true;
             try { await TranscribeAsync(file); }
             catch (Exception ex) { Respond("Voice recognition error: " + ex.Message); }
-            finally { processingAudio = false; TryDelete(file); if (listening) StartRecording(); }
+            finally
+            {
+                processingAudio = false;
+                TryDelete(file);
+                // Avoid feeding Madi AI's own spoken reply back into speech recognition.
+                var deadline = DateTime.UtcNow.AddSeconds(12);
+                while (listening && speaker.State == SynthesizerState.Speaking && DateTime.UtcNow < deadline)
+                    await Task.Delay(150);
+                if (listening) StartRecording();
+            }
         };
         microphone.StartRecording();
         voiceChunk.Start();
