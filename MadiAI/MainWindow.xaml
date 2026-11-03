@@ -61,7 +61,7 @@
   <Border Width="552" Height="518" Canvas.Left="555" Canvas.Top="182" Background="Transparent">
    <Grid>
     <Ellipse Width="520" Height="520" Fill="#090B3D69" Opacity=".35">
-     <Ellipse.Effect><System.Windows.Media.Effects:BlurEffect xmlns:System.Windows.Media.Effects="clr-namespace:System.Windows.Media.Effects;assembly=PresentationCore" Radius="38"/></Ellipse.Effect>
+     <Ellipse.Effect><BlurEffect Radius="38"/></Ellipse.Effect>
     </Ellipse>
     <Canvas Width="530" Height="475" VerticalAlignment="Center" IsHitTestVisible="False">
       <Line X1="5" Y1="227" X2="5" Y2="243" Stroke="#B15BFF" StrokeThickness="3" Opacity=".88"/>
