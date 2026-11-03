@@ -13,6 +13,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -38,11 +39,15 @@ public partial class MainWindow : Window
     private bool listening;
     private bool unlocked;
     private bool processingAudio;
+    private bool voicePreparing;
+    private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
 
     public MainWindow()
     {
         InitializeComponent();
+        Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
+        Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
         GatePrompt.Text = File.Exists(AuthFile) ? "Tell me your secret code to open me" : "Create your secret code to open me";
         GateHelp.Text = File.Exists(AuthFile) ? "Enter your saved code. It remains stored on this PC." : "Set your secret code once. It will be kept on this PC through app updates.";
@@ -51,7 +56,7 @@ public partial class MainWindow : Window
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
         stats.Start();
         UpdateStats();
-        Closed += (_, _) => { listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } speaker.Dispose(); http.Dispose(); };
+        Closed += (_, _) => { voiceSetupCancellation?.Cancel(); listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } speaker.Dispose(); http.Dispose(); };
     }
 
     private void Animate()
@@ -110,7 +115,7 @@ public partial class MainWindow : Window
             SecretBox.Clear();
             GateOverlay.Visibility = Visibility.Collapsed;
             CoreState.Text = "MADI AI • ONLINE";
-            Respond("Welcome, Boss Hammad. Madi AI is online and ready for your commands.");
+            Respond("Welcome, friend. Madi AI is online and ready for your commands.");
         }
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
     }
@@ -168,8 +173,8 @@ public partial class MainWindow : Window
             }
             if (text.Contains("time") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
             if (text.Contains("date") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
-            if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, Boss Hammad. What would you like to do?"); return; }
-            if (text is "hi" or "hello" or "hey" or "سلام" or "नमस्ते") { Respond("Hello, Boss Hammad. I'm listening."); return; }
+            if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
+            if (text is "hi" or "hello" or "hey" or "سلام" or "नमस्ते") { Respond("Hello, friend. I'm listening."); return; }
             if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
@@ -228,31 +233,111 @@ public partial class MainWindow : Window
     private async void Voice_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
-        if (listening) { listening = false; voiceChunk.Stop(); microphone?.StopRecording(); ListenStatus.Text = "● Standby"; CoreState.Text = "MADI AI • ONLINE"; Respond("Voice control stopped."); return; }
+        if (voicePreparing)
+        {
+            voiceSetupCancellation?.Cancel();
+            Respond("Cancelling voice model download.", false);
+            return;
+        }
+        if (listening)
+        {
+            listening = false;
+            voiceChunk.Stop();
+            try { microphone?.StopRecording(); } catch { }
+            ListenStatus.Text = "● Standby";
+            CoreState.Text = "MADI AI • ONLINE";
+            MicButton.Content = "🎙";
+            Respond("Voice control stopped.");
+            return;
+        }
+        voicePreparing = true;
+        voiceSetupCancellation = new CancellationTokenSource();
         try
         {
-            ListenStatus.Text = "● Preparing";
-            CoreState.Text = "PREPARING VOICE MODEL";
-            await EnsureModelAsync();
+            ListenStatus.Text = "● Downloading";
+            CoreState.Text = "VOICE MODEL SETUP";
+            MicButton.Content = "×";
+            await EnsureModelAsync(voiceSetupCancellation.Token);
+            voiceSetupCancellation.Token.ThrowIfCancellationRequested();
+            if (WaveInEvent.DeviceCount == 0)
+                throw new InvalidOperationException("No microphone was found. Connect a microphone and enable Windows microphone access.");
             listening = true;
             ListenStatus.Text = "● Listening";
             CoreState.Text = "MADI AI • LISTENING";
+            MicButton.Content = "■";
+            speaker.SpeakAsyncCancelAll();
             StartRecording();
         }
-        catch (Exception ex) { listening = false; ListenStatus.Text = "● Standby"; Respond("Voice initialization failed: " + ex.Message); }
+        catch (OperationCanceledException)
+        {
+            ListenStatus.Text = "● Standby";
+            CoreState.Text = "MADI AI • ONLINE";
+            Respond("Voice setup cancelled.", false);
+        }
+        catch (Exception ex)
+        {
+            listening = false;
+            ListenStatus.Text = "● Error";
+            CoreState.Text = "VOICE UNAVAILABLE";
+            Respond("Voice setup failed: " + ex.Message, false);
+        }
+        finally
+        {
+            voicePreparing = false;
+            voiceSetupCancellation?.Dispose();
+            voiceSetupCancellation = null;
+            if (!listening) MicButton.Content = "🎙";
+        }
     }
-    private async Task EnsureModelAsync()
+    private async Task EnsureModelAsync(CancellationToken cancellationToken)
     {
-        if (File.Exists(ModelFile) && new FileInfo(ModelFile).Length > 20_000_000) return;
+        if (File.Exists(ModelFile) && new FileInfo(ModelFile).Length > 20_000_000)
+        {
+            Respond("Offline speech model is ready.", false);
+            return;
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(ModelFile)!);
         var temp = ModelFile + ".download";
-        Respond("Downloading free multilingual speech model for the first time. Please wait.", false);
-        using var response = await http.GetAsync("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin", HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-        await using (var source = await response.Content.ReadAsStreamAsync())
-        await using (var dest = File.Create(temp)) await source.CopyToAsync(dest);
-        File.Move(temp, ModelFile, true);
-        Respond("Offline voice model is ready.", false);
+        try
+        {
+            Respond("Downloading free multilingual speech model (first use).", false);
+            using var response = await http.GetAsync(
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+                HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var total = response.Content.Headers.ContentLength;
+            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var dest = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+            var buffer = new byte[81920];
+            long received = 0;
+            int count;
+            while ((count = await source.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                await dest.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
+                received += count;
+                if (received % (81920 * 16) < 81920)
+                {
+                    var mb = received / 1048576.0;
+                    StatusText.Text = total is > 0
+                        ? $"Downloading speech model: {mb:F1} MB / {total.Value / 1048576.0:F1} MB ({100.0 * received / total.Value:F0}%)"
+                        : $"Downloading speech model: {mb:F1} MB";
+                }
+            }
+            await dest.FlushAsync(cancellationToken);
+            if (new FileInfo(temp).Length < 20_000_000)
+                throw new InvalidDataException("Speech model download was incomplete.");
+            File.Move(temp, ModelFile, true);
+            Respond("Speech model ready. Starting microphone.", false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(
+                "Could not download the free speech model. Check your internet connection or place ggml-tiny.bin in %LOCALAPPDATA%\\MadiAI\\models. " + ex.Message, ex);
+        }
+        finally
+        {
+            TryDelete(temp);
+        }
     }
     private void StartRecording()
     {
