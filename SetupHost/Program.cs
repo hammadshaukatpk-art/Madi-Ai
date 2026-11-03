@@ -283,7 +283,7 @@ public sealed class SetupWindow : Window
   key.SetValue("DisplayIcon",exe);
   key.SetValue("Publisher","Madi AI");
   key.SetValue("UninstallString",'"'+Path.Combine(target,"Uninstall Madi AI.exe")+'"'+" /uninstall");
-  key.SetValue("DisplayVersion","0.2.3");
+  key.SetValue("DisplayVersion","0.2.4");
   key.SetValue("NoModify",1,RegistryValueKind.DWord);
   key.SetValue("NoRepair",1,RegistryValueKind.DWord);
   key.SetValue("InstallLocation",target);
