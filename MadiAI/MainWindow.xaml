@@ -6,6 +6,22 @@
  <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#B4081A2D"/><Setter Property="BorderBrush" Value="#186D9A"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="13"/></Style>
  <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="17"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
  <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="16"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ <Style x:Key="DarkLanguageItem" TargetType="ComboBoxItem">
+  <Setter Property="Foreground" Value="#EAF9FF"/>
+  <Setter Property="Background" Value="#0B2038"/>
+  <Setter Property="FontSize" Value="17"/>
+  <Setter Property="Padding" Value="10,9"/>
+  <Setter Property="MinHeight" Value="36"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+   <Border x:Name="itemBg" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+    <ContentPresenter/>
+   </Border>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="itemBg" Property="Background" Value="#185A89"/><Setter Property="Foreground" Value="White"/></Trigger>
+    <Trigger Property="IsSelected" Value="True"><Setter TargetName="itemBg" Property="Background" Value="#165279"/><Setter Property="Foreground" Value="#FFFFFF"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
 </Window.Resources>
 <Viewbox Stretch="Uniform">
@@ -178,7 +194,7 @@
   <TextBlock x:Name="StatusText" Text="Ready" FontSize="14" Foreground="#63DCFF" Canvas.Left="552" Canvas.Top="882" Width="910" TextTrimming="CharacterEllipsis"/>
   <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="14" Foreground="#4AFF9A" Canvas.Left="1530" Canvas.Top="885"/>
   <StackPanel Orientation="Horizontal" Canvas.Left="1333" Canvas.Top="3" Height="43">
-   <ComboBox x:Name="LanguagePicker" Width="103" SelectedIndex="0" Background="#09223A" Foreground="#E7F8FF" VerticalContentAlignment="Center" ToolTip="Speech recognition language" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+   <ComboBox x:Name="LanguagePicker" Width="128" SelectedIndex="0" Background="#09223A" Foreground="#E7F8FF" BorderBrush="#25BFEF" BorderThickness="1.5" ItemContainerStyle="{StaticResource DarkLanguageItem}" VerticalContentAlignment="Center" ToolTip="Choose recognition language" SelectionChanged="LanguagePicker_SelectionChanged" shell:WindowChrome.IsHitTestVisibleInChrome="True"><ComboBox.Resources><SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#0B2038"/><SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#EAF9FF"/><SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#185A89"/></ComboBox.Resources>
     <ComboBoxItem Content="Auto"/><ComboBoxItem Content="English"/><ComboBoxItem Content="اردو"/><ComboBoxItem Content="हिन्दी"/>
    </ComboBox>
    <Button Width="74" Content="START" Background="#145A88" Foreground="White" FontWeight="Bold" BorderBrush="#26DFFF" Click="Voice_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
