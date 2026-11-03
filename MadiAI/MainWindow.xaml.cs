@@ -233,7 +233,7 @@ public partial class MainWindow : Window
             if (text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
             if (text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
             if (text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
-            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("एमटी 5") || text.Contains("ایم ٹی 5")) { if (TryLaunchInstalledApp("MetaTrader 5") || TryLaunchInstalledApp("MetaTrader") || TryLaunchInstalledApp("MT5")) Respond("I am opening MetaTrader 5. Trading automation is not connected."); else Respond("MetaTrader 5 was not found in the Start Menu. Trading automation is not connected."); return; }
+            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("एमटी 5") || text.Contains("ایم ٹی 5")) { if (TryLaunchMetaTrader()) Respond("I am opening MetaTrader 5. Trading automation is not connected."); else Respond("MetaTrader 5 was not found in the Start Menu. Trading automation is not connected."); return; }
             if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
             if (text.StartsWith("search ") || text.StartsWith("find ") || text.StartsWith("تلاش ") || text.StartsWith("खोजो "))
             {
@@ -326,6 +326,35 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(requested)) { ShowAppPicker(); return; }
         if (TryLaunchInstalledApp(requested)) Respond("I am opening " + requested + ".");
         else Respond("I could not find " + requested + " in the Windows Start Menu. Use Open App to select it.");
+    }
+    private bool TryLaunchMetaTrader()
+    {
+        if (TryLaunchInstalledApp("MetaTrader 5") || TryLaunchInstalledApp("MT5") || TryLaunchInstalledApp("MetaTrader"))
+            return true;
+        // Some broker-branded MT5 installations have no standard Start Menu shortcut.
+        foreach (var root in new[] { Registry.CurrentUser, Registry.LocalMachine })
+        {
+            foreach (var keyName in new[] {
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+            })
+            {
+                using var registry = root.OpenSubKey(keyName);
+                if (registry == null) continue;
+                foreach (var subName in registry.GetSubKeyNames())
+                {
+                    using var app = registry.OpenSubKey(subName);
+                    var name = app?.GetValue("DisplayName") as string ?? "";
+                    if (!name.Contains("MetaTrader 5", StringComparison.OrdinalIgnoreCase) &&
+                        !name.Contains("MT5", StringComparison.OrdinalIgnoreCase)) continue;
+                    var folder = app?.GetValue("InstallLocation") as string;
+                    if (string.IsNullOrWhiteSpace(folder)) continue;
+                    var executable = Path.Combine(folder.Trim('"'), "terminal64.exe");
+                    if (File.Exists(executable)) { Open(executable); return true; }
+                }
+            }
+        }
+        return false;
     }
     private string? ChromeExe()
     {
