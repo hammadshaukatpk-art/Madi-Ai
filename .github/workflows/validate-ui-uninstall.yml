@@ -51,10 +51,12 @@ jobs:
         run: |
           $isolated = Join-Path $env:RUNNER_TEMP 'madi-validation'
           New-Item -ItemType Directory -Path $isolated -Force | Out-Null
-          Copy-Item publish/MadiAI.exe $isolated
+          $appFolder = Join-Path $isolated "app"
+          New-Item -ItemType Directory -Path $appFolder -Force | Out-Null
+          Copy-Item publish/* $appFolder -Recurse -Force
           Copy-Item setup/Madi-AI-Setup.exe $isolated
           $checks = @(
-            @{ File = 'MadiAI.exe'; Args = '--smoke-ui'; Log = 'madi-app-smoke.log'; Expected = 'loaded: True' },
+            @{ File = 'app/MadiAI.exe'; Args = '--smoke-ui'; Log = 'madi-app-smoke.log'; Expected = 'loaded: True' },
             @{ File = 'Madi-AI-Setup.exe'; Args = '--smoke-ui'; Log = 'madi-setup-smoke.log'; Expected = 'mode: install' },
             @{ File = 'Madi-AI-Setup.exe'; Args = '--smoke-ui --smoke-uninstall-ui'; Log = 'madi-setup-smoke.log'; Expected = 'mode: uninstall' }
           )
