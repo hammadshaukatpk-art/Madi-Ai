@@ -316,7 +316,8 @@ public partial class MainWindow : Window
             response.EnsureSuccessStatusCode();
             var total = response.Content.Headers.ContentLength;
             await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var dest = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+            await using (var dest = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+            {
             var buffer = new byte[81920];
             long received = 0;
             int count;
@@ -333,6 +334,7 @@ public partial class MainWindow : Window
                 }
             }
             await dest.FlushAsync(cancellationToken);
+            }
             if (new FileInfo(temp).Length < 20_000_000)
                 throw new InvalidDataException("Speech model download was incomplete.");
             File.Move(temp, ModelFile, true);
