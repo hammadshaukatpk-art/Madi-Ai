@@ -25,30 +25,77 @@ d.polygon([(225,304),(352,304),(512,497),(512,656),(349,477),(349,705),(225,705)
 d.polygon([(671,304),(798,304),(798,705),(674,705),(674,477),(512,656),(512,497)],fill=(150,83,255,90))
 base.save("assets/madi.png")
 base.resize((256,256),Image.Resampling.LANCZOS).save("assets/madi.ico",format="ICO",sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
-# Holographic assistant portrait: transparent wireframe with bright eyes, neck and digital nodes.
-W=700;H=730
+# Holographic assistant: dense point-cloud portrait, luminous facial contours,
+# ear pieces and neon floor. This is original vector/raster artwork, not a flat emoji.
+W,H=700,730
 face=Image.new("RGBA",(W,H),(0,0,0,0))
+glow=Image.new("RGBA",(W,H),(0,0,0,0))
+g=ImageDraw.Draw(glow,"RGBA")
 f=ImageDraw.Draw(face,"RGBA")
-f.ellipse((140,48,560,570),fill=(4,35,79,195),outline=(29,198,255,255),width=6)
-f.polygon([(154,340),(186,490),(265,570),(300,580),(298,665),(210,698),(490,698),(402,665),(400,580),(435,570),(516,490),(546,340)],fill=(5,29,73,180),outline=(35,177,255,180))
-for y in range(90,570,15):
-    span=(1-((y-306)/280)**2)**0.5 if abs(y-306)<280 else 0
-    xl=350-205*span;xr=350+205*span
-    f.line((xl,y,xr,y),fill=(15,145,242,65),width=1)
-for x in range(170,530,18):
-    f.arc((x-60,90,x+60,568),70,290,fill=(30,164,252,46),width=1)
-f.arc((185,230,335,355),185,350,fill=(36,220,255,255),width=6)
-f.arc((365,230,515,355),185,350,fill=(36,220,255,255),width=6)
-f.ellipse((241,281,296,303),fill=(76,232,255,255))
-f.ellipse((404,281,459,303),fill=(76,232,255,255))
-f.line((350,313,323,441,356,457),fill=(30,173,247,170),width=3)
-f.arc((296,468,403,507),8,175,fill=(70,201,255,220),width=3)
-for _ in range(950):
-    x=random.randrange(152,548);y=random.randrange(80,564)
-    if ((x-350)/205)**2+((y-305)/258)**2<1:
-        f.point((x,y),fill=(48,177,255,random.randrange(50,175)))
-glow=face.filter(ImageFilter.GaussianBlur(15))
-glow.putalpha(glow.getchannel("A").point(lambda x:int(x*.35)))
-face=Image.alpha_composite(glow,face)
+cx=350
+# Neck and shoulder hologram
+f.polygon([(280,515),(290,612),(180,670),(164,722),(536,722),(520,670),(410,612),(420,515)],fill=(6,43,93,130))
+for y in range(590,713,9):
+    half=int(160*math.sqrt(max(0,1-((y-680)/160)**2)))
+    f.line((cx-half,y,cx+half,y),fill=(25,157,255,50),width=1)
+f.arc((130,618,570,720),0,180,fill=(46,214,255,175),width=3)
+# 3D skull ellipse, darker toward edges and bottom, brighter central ridge
+for ry in range(254,12,-2):
+    t=1-ry/254
+    r=int(8+28*t)
+    b=int(32+115*t)
+    a=int(30+80*t)
+    f.ellipse((cx-194*(ry/254),52+254-ry,cx+194*(ry/254),52+254+ry),fill=(r,b,150,a))
+# Face contour in front
+f.arc((158,51,542,568),188,354,fill=(39,202,255,220),width=4)
+f.arc((158,51,542,568),5,175,fill=(21,128,240,170),width=3)
+# Perspective vertical latitude wireframe, sparse enough to preserve face depth
+for y in range(76,554,11):
+    ny=(y-308)/256
+    if abs(ny)>=1: continue
+    half=190*math.sqrt(1-ny*ny)
+    f.arc((cx-half,y-6,cx+half,y+6),0,180,fill=(25,144,240,64),width=1)
+for a in range(-72,73,12):
+    # longitudinal curves on an oval head
+    pts=[]
+    for y in range(82,540,8):
+        ny=(y-308)/256
+        if abs(ny)<1:
+            xx=cx+190*math.sqrt(1-ny*ny)*math.sin(math.radians(a))
+            pts.append((int(xx),y))
+    if len(pts)>2:f.line(pts,fill=(28,144,255,50),width=1)
+# Ears / headset, match reference's cyan outlines
+for x,sgn in [(153,-1),(547,1)]:
+    f.rounded_rectangle((x-13,280,x+13,405),radius=12,fill=(4,34,78,220),outline=(45,207,255,220),width=4)
+    f.arc((x-24,278,x+24,412),-75 if sgn<0 else 75,75 if sgn<0 else 255,fill=(51,199,255,230),width=3)
+# Eye sockets and luminous almond eyes
+for ex in (275,425):
+    f.arc((ex-63,276,ex+63,332),180,356,fill=(25,170,255,175),width=3)
+    g.ellipse((ex-47,300,ex+47,322),fill=(21,211,255,225))
+    f.ellipse((ex-36,303,ex+36,317),fill=(161,248,255,255))
+    f.ellipse((ex-12,304,ex+12,318),fill=(245,255,255,245))
+# Nose ridge and realistic lip contour
+f.line([(348,314),(341,367),(328,411),(350,420),(373,414)],fill=(62,210,255,170),width=3)
+f.arc((304,442,396,477),3,175,fill=(55,211,255,220),width=3)
+f.arc((308,457,393,490),182,350,fill=(42,161,245,180),width=2)
+f.arc((287,486,413,520),8,173,fill=(22,127,225,100),width=2)
+# Blue pixel constellation and soft center highlights
+for _ in range(6000):
+    x=random.randrange(162,538);y=random.randrange(68,559)
+    if ((x-350)/190)**2+((y-307)/255)**2>=.98: continue
+    radial=((x-350)/190)**2+((y-307)/255)**2
+    alpha=int(25+random.randrange(30,150)*(1-radial*.6))
+    f.point((x,y),fill=(58,194,255,alpha))
+for _ in range(110):
+    x=random.randrange(185,516);y=random.randrange(85,527)
+    if ((x-350)/190)**2+((y-307)/255)**2<.91:
+        rr=random.choice([1,1,2])
+        f.ellipse((x-rr,y-rr,x+rr,y+rr),fill=(80,217,255,random.randrange(100,225)))
+# Edge glow and eyes glow
+halo=face.filter(ImageFilter.GaussianBlur(16))
+halo.putalpha(halo.getchannel("A").point(lambda v:int(v*.30)))
+face=Image.alpha_composite(halo,face)
+eyeGlow=glow.filter(ImageFilter.GaussianBlur(18))
+face=Image.alpha_composite(face,eyeGlow)
 face.save("assets/assistant.png")
-print("Generated HD app icon and transparent assistant art")
+print("Generated 1024px Madi icon and HD holographic point-cloud assistant")
