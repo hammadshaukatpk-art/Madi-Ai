@@ -56,6 +56,8 @@ public partial class MainWindow : Window
     private int speechFrames;
     private List<ChromeProfile>? pendingChromeProfiles;
     private bool voicePreparing;
+    private bool chatPending;
+    private readonly List<(string Role, string Content)> chatHistory = new();
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
 
@@ -270,6 +272,60 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+    private async Task AskLocalAiAsync(string question)
+    {
+        if (chatPending) { Respond("Please wait for the current answer.", false); return; }
+        chatPending = true;
+        try
+        {
+            Respond("Thinking locally...", false);
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
+            using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
+            tagsResponse.EnsureSuccessStatusCode();
+            using var tags = JsonDocument.Parse(await tagsResponse.Content.ReadAsStringAsync());
+            var models = tags.RootElement.GetProperty("models").EnumerateArray()
+                .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
+            if (models.Count == 0)
+            {
+                Respond("Local AI is installed, but no language model is available. Install a model in Ollama to enable conversation.", false);
+                return;
+            }
+            var model = models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
+                ?? models[0];
+            var messages = new List<object>
+            {
+                new { role = "system", content = "You are Madi AI, a helpful concise Windows desktop assistant. Respond in the user's language. Never claim to have opened applications, placed trades, sent messages, or changed files unless an action was actually performed. Be clear when a capability is unavailable. Keep spoken replies brief." }
+            };
+            foreach (var entry in chatHistory.TakeLast(8))
+                messages.Add(new { role = entry.Role, content = entry.Content });
+            messages.Add(new { role = "user", content = question });
+            var payload = JsonSerializer.Serialize(new { model, stream = false, messages, options = new { num_predict = 180 } });
+            using var request = new StringContent(payload, Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync("http://127.0.0.1:11434/api/chat", request);
+            response.EnsureSuccessStatusCode();
+            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
+            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer.", false); return; }
+            chatHistory.Add(("user", question));
+            chatHistory.Add(("assistant", answer));
+            if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
+            Respond(answer);
+        }
+        catch (HttpRequestException)
+        {
+            Respond("Natural AI conversation requires a local model. Install Ollama and a model such as llama3.2. PC voice commands still work without it.", false);
+        }
+        catch (TaskCanceledException)
+        {
+            Respond("The local AI response timed out. Please try again.", false);
+        }
+        catch (Exception ex)
+        {
+            Respond("Local AI chat error: " + ex.Message, false);
+        }
+        finally { chatPending = false; }
+    }
+
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extraInfo);
     [DllImport("user32.dll")]
@@ -702,7 +758,7 @@ public partial class MainWindow : Window
                     TryDelete(file);
                     // Don't record the assistant's own spoken response.
                     var deadline = DateTime.UtcNow.AddSeconds(10);
-                    while (listening && speaker.State == SynthesizerState.Speaking && DateTime.UtcNow < deadline)
+                    while (listening && (chatPending || speaker.State == SynthesizerState.Speaking) && DateTime.UtcNow < deadline)
                         await Task.Delay(100);
                     if (listening) StartRecording();
                 }
@@ -744,7 +800,8 @@ public partial class MainWindow : Window
     private void Ali_Click(object sender, RoutedEventArgs e) => Execute("open aliexpress");
     private void Canva_Click(object sender, RoutedEventArgs e) => Execute("open canva");
     private void Mt5_Click(object sender, RoutedEventArgs e) => Execute("open mt5");
-    private void Chat_Click(object sender, RoutedEventArgs e) => Execute("open chatgpt");
+    private void Chat_Click(object sender, RoutedEventArgs e) { Respond("Ask Madi AI a question in the command bar. Local AI chat uses Ollama if installed.", false); CommandBox.Focus(); }
+    private void ChatGpt_Click(object sender, RoutedEventArgs e) => Execute("open chatgpt");
     private void Office_Click(object sender, RoutedEventArgs e) => Execute("open word");
     private void Calc_Click(object sender, RoutedEventArgs e) => Execute("open calculator");
     private void Screenshot_Click(object sender, RoutedEventArgs e) => Execute("screenshot");
