@@ -84,6 +84,12 @@ public partial class MainWindow : Window
         { RepeatBehavior = RepeatBehavior.Forever };
         ring.BeginAnimation(System.Windows.Media.RotateTransform.AngleProperty, animation);
     }
+    private void LanguagePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || !unlocked) return;
+        var language = LanguagePicker.SelectedIndex switch { 1 => "English", 2 => "Urdu", 3 => "Hindi", _ => "Automatic" };
+        Respond("Voice recognition language: " + language + ". The change applies to your next command.", false);
+    }
     private void Speak(string text)
     {
         try
@@ -394,7 +400,8 @@ public partial class MainWindow : Window
             ListenStatus.Text = "● Standby";
             CoreState.Text = "MADI AI • ONLINE";
             MicButton.Content = "🎙";
-            Respond("Voice control stopped.");
+            StartVoiceButton.Content = "START";
+            Respond("Voice control stopped.", false);
             return;
         }
         voicePreparing = true;
@@ -413,6 +420,8 @@ public partial class MainWindow : Window
             ListenStatus.Text = "● Listening";
             CoreState.Text = "MADI AI • LISTENING";
             MicButton.Content = "■";
+            StartVoiceButton.Content = "STOP";
+            Respond("Listening. Speak your command.", false);
             speaker.SpeakAsyncCancelAll();
             StartRecording();
         }
@@ -434,7 +443,7 @@ public partial class MainWindow : Window
             voicePreparing = false;
             voiceSetupCancellation?.Dispose();
             voiceSetupCancellation = null;
-            if (!listening) MicButton.Content = "🎙";
+            if (!listening) { MicButton.Content = "🎙"; StartVoiceButton.Content = "START"; }
         }
     }
     private async Task EnsureModelAsync(CancellationToken cancellationToken)
