@@ -60,6 +60,21 @@ jobs:
           if (-not $p.WaitForExit(45000)) { $p.Kill(); throw 'Uninstall shortcut startup timed out' }
           if ($p.ExitCode -ne 0) { throw 'Uninstaller failed to start' }
           if (-not (Select-String -Path (Join-Path $env:TEMP 'madi-setup-smoke.log') -Pattern 'mode: uninstall' -Quiet)) { throw 'Uninstaller defaulted to install mode' }
+      - name: Verify actual install, registry uninstall, and removal
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-install-integration.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path setup/Madi-AI-Setup.exe).Path -ArgumentList '--smoke-install-uninstall' -PassThru
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'Install/uninstall integration test timed out' }
+          Write-Host "Install/uninstall exit code: $($p.ExitCode)"
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) {
+            $crash = Join-Path $env:LOCALAPPDATA 'MadiAI\setup-crash.log'
+            if (Test-Path $crash) { Get-Content $crash }
+            throw 'Install/uninstall integration test failed'
+          }
+          if (-not (Test-Path $log)) { throw 'Install/uninstall test missing success trace' }
       - name: Check registration logic
         shell: pwsh
         run: |
