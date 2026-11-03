@@ -32,7 +32,16 @@ public partial class MainWindow : Window
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private string AuthFile => Path.Combine(profile, "unlock.json");
-    private string ModelFile => Path.Combine(profile, "models", "ggml-tiny.bin");
+    private string ModelFile
+    {
+        get
+        {
+            var bundled = Path.Combine(AppContext.BaseDirectory, "models", "ggml-tiny.bin");
+            return File.Exists(bundled) && new FileInfo(bundled).Length > 20_000_000
+                ? bundled
+                : Path.Combine(profile, "models", "ggml-tiny.bin");
+        }
+    }
     private WaveInEvent? microphone;
     private WaveFileWriter? waveWriter;
     private string? currentRecording;
@@ -254,8 +263,8 @@ public partial class MainWindow : Window
         voiceSetupCancellation = new CancellationTokenSource();
         try
         {
-            ListenStatus.Text = "● Downloading";
-            CoreState.Text = "VOICE MODEL SETUP";
+            ListenStatus.Text = "● Starting";
+            CoreState.Text = "STARTING VOICE ENGINE";
             MicButton.Content = "×";
             await EnsureModelAsync(voiceSetupCancellation.Token);
             voiceSetupCancellation.Token.ThrowIfCancellationRequested();
@@ -300,7 +309,7 @@ public partial class MainWindow : Window
         var temp = ModelFile + ".download";
         try
         {
-            Respond("Downloading free multilingual speech model (first use).", false);
+            Respond("Downloading the free speech model because the bundled copy was not found.", false);
             using var response = await http.GetAsync(
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
                 HttpCompletionOption.ResponseHeadersRead, cancellationToken);
