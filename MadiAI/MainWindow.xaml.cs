@@ -866,7 +866,7 @@ public partial class MainWindow : Window
         if (!unlocked) return;
         var window = new Window
         {
-            Title = "Madi AI • Settings", Width = 570, Height = 440,
+            Title = "Madi AI • Settings", Width = 570, Height = 555,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
             Foreground = System.Windows.Media.Brushes.White
