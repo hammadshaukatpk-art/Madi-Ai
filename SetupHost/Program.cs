@@ -3,6 +3,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Diagnostics;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -91,6 +93,9 @@ public sealed class SetupWindow : Window
  static readonly Brush Panel=new SolidColorBrush(Color.FromRgb(7,25,49));
  readonly string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","MadiAI");
  readonly bool uninstall;
+ readonly string authPath=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MadiAI","unlock.json");
+ readonly PasswordBox newSecret=new(){Height=32,FontSize=16,Background=new SolidColorBrush(Color.FromRgb(12,41,68)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan)};
+ readonly PasswordBox confirmSecret=new(){Height=32,FontSize=16,Background=new SolidColorBrush(Color.FromRgb(12,41,68)),Foreground=Brushes.White,BorderBrush=new SolidColorBrush(Cyan)};
  bool finished;
  readonly TextBlock status=new(){FontSize=14,Foreground=Ink,TextWrapping=TextWrapping.Wrap,HorizontalAlignment=HorizontalAlignment.Center};
  readonly ProgressBar progress=new(){Height=13,Minimum=0,Maximum=100,Value=0,Foreground=new SolidColorBrush(Cyan),Background=new SolidColorBrush(Color.FromRgb(12,43,77)),Margin=new Thickness(0,17,0,17)};
@@ -143,8 +148,9 @@ public sealed class SetupWindow : Window
     HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center
    });
   }
-  var right=new StackPanel{Margin=new Thickness(12,30,8,0)};
-  Grid.SetColumn(right,1);body.Children.Add(right);
+  var right=new StackPanel{Margin=new Thickness(12,8,8,0)};
+  var scroll=new ScrollViewer{VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,Content=right};
+  Grid.SetColumn(scroll,1);body.Children.Add(scroll);
   title.Text=remove?"Uninstall Madi AI":"Welcome to Madi AI Setup";
   title.FontSize=27;title.TextAlignment=TextAlignment.Center;title.TextWrapping=TextWrapping.Wrap;
   right.Children.Add(title);
@@ -158,9 +164,21 @@ public sealed class SetupWindow : Window
     :"Install the native Madi AI desktop application. No command prompt required.";
   status.Margin=new Thickness(4,10,4,12);right.Children.Add(status);
   right.Children.Add(progress);
+  if(!remove && !File.Exists(authPath))
+  {
+   right.Children.Add(new TextBlock{Text="CREATE YOUR SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontSize=13,FontWeight=FontWeights.Bold,Margin=new Thickness(0,5,0,4)});
+   right.Children.Add(newSecret);
+   right.Children.Add(new TextBlock{Text="CONFIRM SECRET CODE",Foreground=new SolidColorBrush(Cyan),FontSize=13,FontWeight=FontWeights.Bold,Margin=new Thickness(0,7,0,4)});
+   right.Children.Add(confirmSecret);
+   right.Children.Add(new TextBlock{Text="Set once before installation. Stored as a salted hash on this PC, never in GitHub.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Color.FromRgb(140,189,217)),FontSize=11,Margin=new Thickness(0,4,0,0)});
+  }
+  else if(!remove)
+  {
+   right.Children.Add(new TextBlock{Text="Existing local secret code detected — it will be preserved.",TextWrapping=TextWrapping.Wrap,Foreground=new SolidColorBrush(Cyan),FontSize=12,Margin=new Thickness(0,8,0,0)});
+  }
   if(!remove)right.Children.Add(launch);
   primary.Content=remove?"UNINSTALL MADI AI":"INSTALL MADI AI";
-  primary.Margin=new Thickness(45,22,45,0);
+  primary.Margin=new Thickness(45,12,45,0);
   primary.Background=new SolidColorBrush(Color.FromRgb(93,42,174));
   primary.BorderBrush=new SolidColorBrush(Color.FromRgb(181,102,255));
   primary.Click+=Primary_Click;right.Children.Add(primary);
@@ -182,20 +200,30 @@ public sealed class SetupWindow : Window
   {
    status.Text=uninstall?"Removing application...":"Installing application...";
    progress.IsIndeterminate=true;
-   await System.Threading.Tasks.Task.Run(uninstall?Remove:Install);
+   string? code=null;
+   if(!uninstall && !File.Exists(authPath))
+   {
+    code=newSecret.Password;
+    if(code.Length<6) throw new InvalidOperationException("Choose a secret code with at least 6 characters.");
+    if(code!=confirmSecret.Password) throw new InvalidOperationException("The secret codes do not match.");
+   }
+   var selectedCode=code;
+   await System.Threading.Tasks.Task.Run(()=>{if(uninstall)Remove();else Install(selectedCode);});
    progress.IsIndeterminate=false;progress.Value=100;
    status.Text=uninstall?"Madi AI was uninstalled. Your saved secret code was preserved.":"Madi AI was installed successfully.";
    primary.Content="FINISH";finished=true;primary.IsEnabled=true;
   }
   catch(Exception ex)
   {
-   progress.IsIndeterminate=false;status.Text="Unable to finish: "+ex.Message;primary.Content="CLOSE";finished=true;primary.IsEnabled=true;
+   progress.IsIndeterminate=false;status.Text="Unable to finish: "+ex.Message;primary.Content="RETRY";primary.IsEnabled=true;
   }
  }
  void TryLaunch(){try{Process.Start(new ProcessStartInfo(Path.Combine(target,"MadiAI.exe")){UseShellExecute=true});}catch{}}
  public void IntegrationTest()
  {
-  Install();
+  var testCreatedCode=!File.Exists(authPath);
+  Install(testCreatedCode?Guid.NewGuid().ToString("N"):null);
+  if (!File.Exists(authPath)) throw new IOException("First-install secret code was not saved.");
   if (!File.Exists(Path.Combine(target,"MadiAI.exe"))) throw new IOException("Installed app missing.");
   using (var key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI"))
   {
@@ -206,10 +234,13 @@ public sealed class SetupWindow : Window
   if (Directory.Exists(target)) throw new IOException("Uninstall did not remove application folder.");
   using var leftover=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
   if (leftover != null) throw new IOException("Uninstall registry entry was not removed.");
+  if (testCreatedCode && !File.Exists(authPath)) throw new IOException("Uninstall incorrectly deleted the saved secret code.");
+  if (testCreatedCode) File.Delete(authPath);
  }
 
- void Install()
+ void Install(string? code)
  {
+  if(!File.Exists(authPath) && (code==null || code.Length<6)) throw new InvalidOperationException("A secret code is required before first installation.");
   Directory.CreateDirectory(target);
   using var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("MadiAI.Payload") ?? throw new FileNotFoundException("Embedded app package not found.");
   using var archive=new ZipArchive(resource,ZipArchiveMode.Read);
@@ -230,6 +261,14 @@ public sealed class SetupWindow : Window
   key.SetValue("NoModify",1,RegistryValueKind.DWord);
   key.SetValue("NoRepair",1,RegistryValueKind.DWord);
   key.SetValue("InstallLocation",target);
+  if(!File.Exists(authPath))
+  {
+   var salt=RandomNumberGenerator.GetBytes(16);
+   var hash=Rfc2898DeriveBytes.Pbkdf2(code!,salt,200000,HashAlgorithmName.SHA256,32);
+   Directory.CreateDirectory(Path.GetDirectoryName(authPath)!);
+   using var stream=new FileStream(authPath,FileMode.CreateNew,FileAccess.Write,FileShare.None);
+   JsonSerializer.Serialize(stream,new {salt=Convert.ToBase64String(salt),hash=Convert.ToBase64String(hash)});
+  }
  }
  static void Shortcut(string path,string exe,string arguments="")
  {
