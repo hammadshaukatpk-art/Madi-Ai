@@ -64,8 +64,8 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
-        GatePrompt.Text = File.Exists(AuthFile) ? "Tell me your secret code to open me" : "Create your secret code to open me";
-        GateHelp.Text = File.Exists(AuthFile) ? "Enter your saved code. It remains stored on this PC." : "Set your secret code once. It will be kept on this PC through app updates.";
+        GatePrompt.Text = File.Exists(AuthFile) ? "Enter your private secret code" : "Secret code not configured";
+        GateHelp.Text = File.Exists(AuthFile) ? "Use the code you created in Madi AI Setup. It is stored only on this PC." : "Please run Madi AI Setup to create your secret code before using the app.";
         Loaded += (_, _) => { Animate(); SecretBox.Focus(); };
         stats.Tick += (_, _) => UpdateStats();
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
     private void Unlock()
     {
         var code = SecretBox.Password;
-        if (!File.Exists(AuthFile) && code.Length < 6) { GateHelp.Text = "Use at least 6 characters for a new code."; return; }
+        if (!File.Exists(AuthFile)) { GateHelp.Text = "Run Madi AI Setup first to create your private secret code."; return; }
         if (File.Exists(AuthFile) && code.Length == 0) { GateHelp.Text = "Enter your saved secret code."; return; }
         try
         {
@@ -126,13 +126,7 @@ public partial class MainWindow : Window
                 if (!CryptographicOperations.FixedTimeEquals(saved, entered))
                 { GateHelp.Text = "Incorrect secret code. Try again."; return; }
             }
-            else
-            {
-                var salt = RandomNumberGenerator.GetBytes(16);
-                var hash = Rfc2898DeriveBytes.Pbkdf2(code, salt, 200000, HashAlgorithmName.SHA256, 32);
-                var json = JsonSerializer.Serialize(new { salt = Convert.ToBase64String(salt), hash = Convert.ToBase64String(hash) });
-                File.WriteAllText(AuthFile, json);
-            }
+
             unlocked = true;
             SecretBox.Clear();
             GateOverlay.Visibility = Visibility.Collapsed;
