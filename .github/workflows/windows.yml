@@ -80,8 +80,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.2-alpha
-          name: Madi AI v0.2.2 Alpha - Voice, Uninstall and UI fixes
+          tag_name: v0.2.3-alpha
+          name: Madi AI v0.2.3 Alpha - First-install secret, responsive voice and profile chooser
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
