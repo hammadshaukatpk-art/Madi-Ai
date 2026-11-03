@@ -27,6 +27,25 @@ jobs:
       - name: Publish dark-themed installer and uninstaller
         shell: pwsh
         run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Verify standalone EXE launches without sidecar DLLs
+        shell: pwsh
+        run: |
+          $isolated = Join-Path $env:RUNNER_TEMP 'madi-standalone-test'
+          New-Item -ItemType Directory -Path $isolated -Force | Out-Null
+          Copy-Item setup/Madi-AI-Setup.exe $isolated
+          $exe = Join-Path $isolated 'Madi-AI-Setup.exe'
+          $log = Join-Path $env:TEMP 'madi-setup-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(45000)) {
+            $p.Kill()
+            throw 'Standalone installer failed to start within 45 seconds'
+          }
+          Write-Host "Standalone installer exit code: $($p.ExitCode)"
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Standalone installer failed: $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Installer window did not start' }
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Installer window did not load' }
       - uses: actions/upload-artifact@v4
         with:
           name: Madi-AI-Native-Dark-Installer
@@ -36,8 +55,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.0-alpha
-          name: Madi AI v0.2.0 Alpha
+          tag_name: v0.2.1-alpha
+          name: Madi AI v0.2.1 Alpha - Windows native DLL packaging fix
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
