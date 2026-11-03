@@ -716,7 +716,7 @@ public partial class MainWindow : Window
             }
             double rms = samples > 0 ? Math.Sqrt((double)energy / samples) / 32768.0 : 0;
             var now = DateTime.UtcNow;
-            if (rms > 0.022)
+            if (rms > 0.014)
             {
                 speechFrames++;
                 if (speechFrames >= 2)
@@ -727,8 +727,8 @@ public partial class MainWindow : Window
             }
             else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
             if (firstSpeech != DateTime.MinValue &&
-                (now - firstSpeech).TotalMilliseconds >= 300 &&
-                (now - lastSpeech).TotalMilliseconds >= 650)
+                (now - firstSpeech).TotalMilliseconds >= 150 &&
+                (now - lastSpeech).TotalMilliseconds >= 550)
             {
                 if (Interlocked.Exchange(ref stopRequested, 1) == 0)
                     Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
