@@ -60,6 +60,22 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Installer startup failed with exit code $($p.ExitCode)" }
           if (-not (Test-Path $log)) { throw 'Installer produced no UI load trace' }
           if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'WPF window did not load' }
+      - name: Test actual distributed EXE alone (isolated)
+        shell: pwsh
+        run: |
+          $isolated = Join-Path $env:RUNNER_TEMP 'madi-isolated'
+          New-Item -ItemType Directory -Path $isolated -Force | Out-Null
+          Copy-Item setup/Madi-AI-Setup.exe $isolated
+          Write-Host 'Publish folder files:'
+          Get-ChildItem setup | Select-Object Name, Length | Format-Table
+          $log = Join-Path $env:TEMP 'madi-setup-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Join-Path $isolated 'Madi-AI-Setup.exe') -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(30000)) { $p.Kill(); throw 'Isolated installer startup timeout' }
+          Write-Host "Isolated exit code: $($p.ExitCode)"
+          if (Test-Path $log) { Get-Content $log }
+          if ($p.ExitCode -ne 0) { throw "Standalone EXE crashes with exit code $($p.ExitCode)" }
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Standalone EXE window never loaded' }
       - name: Save diagnostics
         if: always()
         uses: actions/upload-artifact@v4
