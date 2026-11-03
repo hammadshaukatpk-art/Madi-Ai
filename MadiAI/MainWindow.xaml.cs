@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private DateTime firstSpeech;
     private DateTime lastSpeech;
     private int speechFrames;
+    private List<ChromeProfile>? pendingChromeProfiles;
     private bool voicePreparing;
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
@@ -160,6 +161,7 @@ public partial class MainWindow : Window
         CommandBox.Text = "";
         try
         {
+            if (TrySelectPendingChromeProfile(text)) return;
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
@@ -382,9 +384,10 @@ public partial class MainWindow : Window
         }
         if (selected == null && profiles.Count > 1)
         {
-            Respond("Which Google Chrome profile should I open?");
-            selected = ChooseChromeProfile(profiles);
-            if (selected == null) { Respond("Chrome profile selection cancelled.", false); return; }
+            pendingChromeProfiles = profiles;
+            var options = string.Join(", ", profiles.Take(8).Select((p, i) => $"Profile {i + 1}: {p.Name}"));
+            Respond("Which Google Chrome profile should I open? " + options + ". Say profile 1, profile 2, or the profile name.");
+            return;
         }
         else selected ??= profiles.FirstOrDefault();
         var start = new ProcessStartInfo(chrome) { UseShellExecute = false };
@@ -392,6 +395,39 @@ public partial class MainWindow : Window
         start.ArgumentList.Add("https://www.google.com");
         Process.Start(start);
         Respond(selected == null ? "Opening Google Chrome." : "Opening Google Chrome profile " + selected.Name + ".");
+    }
+    private bool TrySelectPendingChromeProfile(string command)
+    {
+        if (pendingChromeProfiles == null) return false;
+        var profiles = pendingChromeProfiles;
+        var numbers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["one"]=1,["two"]=2,["three"]=3,["four"]=4,["five"]=5,
+            ["एक"]=1,["दो"]=2,["तीन"]=3,["چار"]=4,["ایک"]=1,["دو"]=2,["تین"]=3
+        };
+        var match = Regex.Match(command, @"(?:profile|پروفائل|प्रोफाइल|प्रोफ़ाइल)\s*(\d+|one|two|three|four|five|एक|दो|तीन|ایک|دو|تین)", RegexOptions.IgnoreCase);
+        int index = -1;
+        if (match.Success)
+        {
+            var word = match.Groups[1].Value;
+            index = int.TryParse(word, out var n) ? n - 1 : numbers.TryGetValue(word, out n) ? n - 1 : -1;
+        }
+        if (index < 0) index = profiles.FindIndex(p => command.Contains(p.Name.ToLowerInvariant(), StringComparison.OrdinalIgnoreCase));
+        if (index < 0 || index >= profiles.Count)
+        {
+            if (command is "cancel" or "stop" or "रद्द" or "منسوخ") { pendingChromeProfiles = null; Respond("Chrome profile selection cancelled.", false); return true; }
+            return false;
+        }
+        pendingChromeProfiles = null;
+        var chrome = FindChrome();
+        if (chrome == null) { Respond("Google Chrome is no longer installed."); return true; }
+        var selected = profiles[index];
+        var start = new ProcessStartInfo(chrome) { UseShellExecute = false };
+        start.ArgumentList.Add("--profile-directory=" + selected.Folder);
+        start.ArgumentList.Add("https://www.google.com");
+        Process.Start(start);
+        Respond("Opening Google Chrome with " + selected.Name + " profile.");
+        return true;
     }
     private ChromeProfile? ChooseChromeProfile(List<ChromeProfile> profiles)
     {
