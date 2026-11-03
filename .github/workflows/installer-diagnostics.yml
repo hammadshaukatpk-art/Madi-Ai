@@ -1,0 +1,71 @@
+name: Diagnose installer startup (no release)
+on:
+  push:
+    branches:
+      - diagnostics/installer-startup
+  workflow_dispatch:
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Create branding
+        shell: pwsh
+        run: |
+          python -m pip install pillow
+          python tools/generate_assets.py
+      - name: Build application and installer
+        shell: pwsh
+        run: |
+          dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+          Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
+          dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Inspect output
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path setup/Madi-AI-Setup.exe
+          $file = Get-Item $exe
+          Write-Host "Installer bytes: $($file.Length)"
+          Write-Host "SHA256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+          Write-Host "Authenticode status: $((Get-AuthenticodeSignature $exe).Status)"
+          $zip = [IO.Compression.ZipFile]::OpenRead((Resolve-Path app-package.zip))
+          $names = @($zip.Entries | ForEach-Object FullName)
+          if ('MadiAI.exe' -notin $names) { throw 'Application payload missing MadiAI.exe' }
+          Write-Host "Payload entries: $($names.Count)"
+          $zip.Dispose()
+      - name: Run native WPF setup window smoke test
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path setup/Madi-AI-Setup.exe).Path
+          $log = Join-Path $env:TEMP 'madi-setup-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(45000)) {
+            $p.Kill()
+            Write-Host 'Installer did not complete UI startup smoke test in 45 seconds'
+            if (Test-Path $log) { Get-Content $log }
+            throw 'Installer launch timed out'
+          }
+          Write-Host "Installer process exit code: $($p.ExitCode)"
+          if (Test-Path $log) { Get-Content $log }
+          $crash = Join-Path $env:LOCALAPPDATA 'MadiAI\setup-crash.log'
+          if (Test-Path $crash) { Get-Content $crash }
+          if ($p.ExitCode -ne 0) { throw "Installer startup failed with exit code $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Installer produced no UI load trace' }
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'WPF window did not load' }
+      - name: Save diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-diagnostics-${{ matrix.os }}
+          path: |
+            setup/Madi-AI-Setup.exe
+            ${{ runner.temp }}/madi-setup-smoke.log
+          retention-days: 3
