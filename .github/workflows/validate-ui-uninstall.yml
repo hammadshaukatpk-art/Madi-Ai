@@ -4,7 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   push:
-    branches: [fix/uninstall-voice-layout, fix/installer-voice-profiles-reference-ui, fix/real-voice-auth-ui-20261103]
+    branches: [fix/uninstall-voice-layout, fix/installer-voice-profiles-reference-ui, fix/real-voice-auth-ui-20261103, fix/installer-thread-and-reference-ui-20261103]
   workflow_dispatch:
 jobs:
   validate:
