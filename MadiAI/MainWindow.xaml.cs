@@ -268,7 +268,7 @@ public partial class MainWindow : Window
                 else Respond("Cancelled.");
                 return;
             }
-            Respond("I heard: " + raw + ". I don't have a safe action for that request yet.");
+            _ = AskLocalAiAsync(raw);
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
