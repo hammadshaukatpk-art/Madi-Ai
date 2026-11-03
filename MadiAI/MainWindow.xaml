@@ -218,7 +218,7 @@
    <Button Style="{StaticResource TileButton}" Content="▥&#10;MT5" Click="Mt5_Click"/>
    <Button Style="{StaticResource TileButton}" Content="◉&#10;Canva" Click="Canva_Click"/>
    <Button Style="{StaticResource TileButton}" Content="▣&#10;Office" Click="Office_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◎&#10;ChatGPT" Click="Chat_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◎&#10;ChatGPT" Click="ChatGpt_Click"/>
    <Button Style="{StaticResource TileButton}" Content="＋&#10;Add" Click="Apps_Click"/>
   </UniformGrid>
   <Image Source="/madi.png" Width="48" Height="48" Canvas.Left="19" Canvas.Top="4"/>
