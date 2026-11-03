@@ -310,6 +310,8 @@ public partial class MainWindow : Window
         chatPending = true;
         try
         {
+            LocalAiModuleText.Text = "◌  Local AI • checking";
+            CoreState.Text = "MADI AI • THINKING";
             Respond("Checking local AI model...", false);
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
             using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
@@ -319,6 +321,7 @@ public partial class MainWindow : Window
                 .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
             if (models.Count == 0)
             {
+                LocalAiModuleText.Text = "◌  Local AI • model required";
                 Respond("Offline AI needs a language model. Open Settings and choose Enable Local AI.");
                 return;
             }
@@ -338,6 +341,7 @@ public partial class MainWindow : Window
             using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
             if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer."); return; }
+            LocalAiModuleText.Text = "●  Local AI • ready";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
             if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
@@ -345,6 +349,7 @@ public partial class MainWindow : Window
         }
         catch (HttpRequestException)
         {
+            LocalAiModuleText.Text = "◌  Local AI • not running";
             Respond("Offline AI is not ready. Open Settings to install a free local model. App-opening commands still work.");
         }
         catch (TaskCanceledException)
@@ -355,7 +360,7 @@ public partial class MainWindow : Window
         {
             Respond("Local AI chat error: " + ex.Message);
         }
-        finally { chatPending = false; }
+        finally { chatPending = false; CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE"; }
     }
 
     [DllImport("user32.dll")]
@@ -630,6 +635,7 @@ public partial class MainWindow : Window
             CoreState.Text = "MADI AI • ONLINE";
             MicButton.Content = "🎙";
             StartVoiceButton.Content = "START";
+            VoiceModuleText.Text = "◌  Voice • standby";
             Respond("Voice control stopped.", false);
             return;
         }
@@ -651,6 +657,7 @@ public partial class MainWindow : Window
             CoreState.Text = "MADI AI • LISTENING";
             MicButton.Content = "■";
             StartVoiceButton.Content = "STOP";
+            VoiceModuleText.Text = "●  Voice • listening";
             Respond("Listening. Speak your command.", false);
             speaker.SpeakAsyncCancelAll();
             StartRecording();
@@ -666,6 +673,7 @@ public partial class MainWindow : Window
             listening = false;
             ListenStatus.Text = "● Error";
             CoreState.Text = "VOICE UNAVAILABLE";
+            VoiceModuleText.Text = "◌  Voice • check microphone";
             Respond("Voice setup failed: " + ex.Message, false);
         }
         finally
