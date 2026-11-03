@@ -1,4 +1,7 @@
 name: Validate Madi UI Voice and Uninstall Fixes
+concurrency:
+  group: madi-validation-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     branches: [fix/uninstall-voice-layout]
