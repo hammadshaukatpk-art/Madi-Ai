@@ -27,13 +27,14 @@ After unlocking, Madi AI attempts to start listening automatically. The START/ST
 
 
 ## Windows 10 user feedback / current status
-- **Private code:** the installer asks for a code on a clean first install. On a machine with an existing `%LOCALAPPDATA%\\MadiAI\\unlock.json`, the saved code is reused by default. In setup, check **Set a NEW secret code for this Windows user** to explicitly replace it. This does not delete other profile settings. No fixed secret is in source control.
+- **v0.2.5 installer repair:** WPF PasswordBox values are read only on the UI thread and passed as plain immutable data to the installation worker. The installer no longer reads WPF controls on a worker thread. A failed installation keeps a **RETRY INSTALL** button instead of showing **CLOSE**. Automated installation tests exercise both a fresh code and an existing code replacement.
+- **Private code:** the installer asks for a code on a clean first install. On a machine with an existing `%LOCALAPPDATA%\\MadiAI\\unlock.json`, the saved code is reused by default. On updates, the code fields are optional: enter and confirm a new code to replace the existing one, or leave both blank to keep it. The installer never displays a GitHub/code-detection warning. This does not delete other profile settings. No fixed secret is in source control.
 - **Microphone:** Settings → **TEST MICROPHONE (3 SECONDS)** measures actual input signal on the chosen device without saving the recording. The mic selector must match the Windows recording device.
 - **Web profiles:** opening WhatsApp, YouTube, Google, eBay, AliExpress or Canva asks which Chrome profile when multiple local Chrome profiles exist. Reply with a number or a profile name. "Open WhatsApp desktop" attempts the installed Windows application instead.
 - **Offline conversation:** Settings → **ENABLE FREE OFFLINE AI (OLLAMA)** opens the official Ollama Windows installer if missing, or offers to download a local model (about 1.3 GB) if Ollama is installed. The initial download requires internet. Until a local model is running, ordinary conversational requests cannot be answered. This is **not** a built-in JARVIS-level reasoning agent.
 - **Voice speed:** the included multilingual Whisper engine detects silence and then transcribes audio on the local CPU. It is **not** a streaming word-by-word speech engine, and a guaranteed 1–2 second reply is not supported. Installed Windows voices determine spoken Hindi/Urdu output.
 - **Trading and e-commerce:** MT5 launch, eBay/AliExpress websites and WhatsApp Web are **not** autonomous trading, listing, ordering, messaging or calling integrations. They must not be presented as completed features.
-- **UI:** native WPF design follows the user's supplied holographic dashboard reference, but is **not pixel-perfect**. Further reference-asset and spacing work is required.
+- **UI:** holographic head brightness, circular rings, neon panels and dashboard proportions were updated against the supplied reference. The procedural head is **not yet a pixel-identical reproduction** of the supplied design.
 
 ## Developer build
 On Windows with .NET 8 SDK, generate assets with `python tools/generate_assets.py` (Pillow required), then build the WPF app. The CI workflow builds both application and installer automatically.
