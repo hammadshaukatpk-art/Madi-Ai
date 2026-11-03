@@ -167,6 +167,24 @@ public partial class MainWindow : Window
     private static string Normalize(string raw)
     {
         var s = raw.Trim().ToLowerInvariant();
+        // Speech models often split brand names differently in Hindi, Urdu and English.
+        // Normalize common transcriptions before matching explicit application commands.
+        foreach (var variant in new (string From, string To)[]
+        {
+            ("what's app", "whatsapp"), ("whats app", "whatsapp"),
+            ("what s app", "whatsapp"), ("व्हाट्स ऐप", "whatsapp"),
+            ("व्हाट्सएप", "whatsapp"), ("व्हाट्सऐप", "whatsapp"),
+            ("व्हाट्स एप", "whatsapp"), ("वॉट्सएप", "whatsapp"),
+            ("व्हाट्सएप्प", "whatsapp"), ("واٹس ایپ", "whatsapp"),
+            ("واٹس اپ", "whatsapp"), ("واٹساپ", "whatsapp"),
+            ("यूट्यूब", "youtube"), ("यू ट्यूब", "youtube"),
+            ("یوٹیوب", "youtube"), ("یو ٹیوب", "youtube"),
+            ("गूगल", "google"), ("گوگل", "google"),
+            ("क्रोम", "chrome"), ("کروم", "chrome"),
+            ("कैनवा", "canva"), ("کینوا", "canva"),
+            ("मेटाट्रेडर", "metatrader"), ("میٹا ٹریڈر", "metatrader"),
+            ("अलीएक्सप्रेस", "aliexpress"), ("علی ایکسپریس", "aliexpress")
+        }) s = s.Replace(variant.From, variant.To, StringComparison.Ordinal);
         foreach (var prefix in new[] { "hey madi ai ", "hey madi ", "madi ai ", "madi ", "please ", "یار ", "براہ کرم ", "कृपया " })
             if (s.StartsWith(prefix)) s = s[prefix.Length..];
         return s;
