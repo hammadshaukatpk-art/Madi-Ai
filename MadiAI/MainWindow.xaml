@@ -220,17 +220,17 @@
     <Button Grid.Column="2" Content="➤  SEND" HorizontalAlignment="Right" Width="122" Background="Transparent" Foreground="#70DFFF" BorderThickness="0" Click="Send_Click" Cursor="Hand"/>
    </Grid>
   </Border>
-  <UniformGrid Columns="10" Width="1282" Height="76" Canvas.Left="225" Canvas.Top="786">
-   <Button Style="{StaticResource TileButton}" Content="🌐&#10;Browser" Click="Browser_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="▶&#10;YouTube" Click="Youtube_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◉&#10;WhatsApp" Click="Whatsapp_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◈&#10;eBay" Click="Ebay_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="🛒&#10;AliExpress" Click="Ali_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="▥&#10;MT5" Click="Mt5_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◉&#10;Canva" Click="Canva_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="▣&#10;Office" Click="Office_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◎&#10;ChatGPT" Click="ChatGpt_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="＋&#10;Add" Click="Apps_Click"/>
+  <UniformGrid Columns="10" Width="1282" Height="86" Canvas.Left="225" Canvas.Top="781">
+   <Button Style="{StaticResource TileButton}" Click="Browser_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="🌐" Foreground="#57CBFF" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="Browser" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Youtube_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="▶" Foreground="#FF3048" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="YouTube" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Whatsapp_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="☎" Foreground="#28E872" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="WhatsApp" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Ebay_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="eBay" Foreground="#3C8CFF" FontFamily="Segoe UI Symbol" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="eBay" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Ali_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="▣" Foreground="#FF852F" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="AliExpress" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Mt5_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="📈" Foreground="#43C8FF" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="MT5" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Canva_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="C" Foreground="#45E5F0" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="Canva" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Office_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="◈" Foreground="#FF6C32" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="Office" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="ChatGpt_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="✺" Foreground="#E7F4FF" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="ChatGPT" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
+   <Button Style="{StaticResource TileButton}" Click="Apps_Click"><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock Text="＋" Foreground="#D6ECFF" FontFamily="Segoe UI Symbol" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="Add" FontSize="15" Foreground="#EAF8FF" HorizontalAlignment="Center"/></StackPanel></Button>
   </UniformGrid>
   <TextBlock Text="◉" Foreground="#22CFFF" FontSize="37" Canvas.Left="22" Canvas.Top="3"/>
   <TextBlock Text="Madi AI v1.0" FontSize="18" FontWeight="SemiBold" Canvas.Left="70" Canvas.Top="16"/>
