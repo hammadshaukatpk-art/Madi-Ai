@@ -70,6 +70,8 @@ jobs:
             if ($p.ExitCode -ne 0) { throw "Crash: $($check.File) exit $($p.ExitCode)" }
             if (-not (Test-Path $log)) { throw "Missing trace: $($check.Log)" }
             if (-not (Select-String -Path $log -Pattern $check.Expected -Quiet)) { throw "Missing $($check.Expected)" }
+            if ($check.File -eq 'app/MadiAI.exe' -and -not (Select-String -Path $log -Pattern 'language selection: 2' -Quiet)) { throw 'Language selection did not update' }
+            if ($check.File -eq 'Madi-AI-Setup.exe' -and $check.Args -eq '--smoke-ui' -and -not (Select-String -Path $log -Pattern 'first-install-code: True' -Quiet)) { throw 'Fresh installer did not request secret code' }
           }
           Copy-Item setup/Madi-AI-Setup.exe (Join-Path $isolated 'Uninstall Madi AI.exe')
           Remove-Item (Join-Path $env:TEMP 'madi-setup-smoke.log') -ErrorAction SilentlyContinue
