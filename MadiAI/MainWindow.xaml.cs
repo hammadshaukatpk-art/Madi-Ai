@@ -28,7 +28,7 @@ public partial class MainWindow : Window
 {
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(7) };
+    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private string AuthFile => Path.Combine(profile, "unlock.json");
@@ -48,6 +48,12 @@ public partial class MainWindow : Window
     private bool listening;
     private bool unlocked;
     private bool processingAudio;
+    private WhisperFactory? voiceFactory;
+    private int stopRequested;
+    private DateTime captureStarted;
+    private DateTime firstSpeech;
+    private DateTime lastSpeech;
+    private int speechFrames;
     private bool voicePreparing;
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
@@ -60,12 +66,12 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(profile);
         GatePrompt.Text = File.Exists(AuthFile) ? "Tell me your secret code to open me" : "Create your secret code to open me";
         GateHelp.Text = File.Exists(AuthFile) ? "Enter your saved code. It remains stored on this PC." : "Set your secret code once. It will be kept on this PC through app updates.";
-        Loaded += (_, _) => { Animate(); Speak("Tell me your secret code to open me"); SecretBox.Focus(); };
+        Loaded += (_, _) => { Animate(); SecretBox.Focus(); };
         stats.Tick += (_, _) => UpdateStats();
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
         stats.Start();
         UpdateStats();
-        Closed += (_, _) => { voiceSetupCancellation?.Cancel(); listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } speaker.Dispose(); http.Dispose(); };
+        Closed += (_, _) => { voiceSetupCancellation?.Cancel(); listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } voiceFactory?.Dispose(); speaker.Dispose(); http.Dispose(); };
     }
 
     private void Animate()
@@ -125,7 +131,8 @@ public partial class MainWindow : Window
             SecretBox.Clear();
             GateOverlay.Visibility = Visibility.Collapsed;
             CoreState.Text = "MADI AI • ONLINE";
-            Respond("Welcome, friend. Madi AI is online and ready for your commands.");
+            Respond("Madi AI unlocked. Voice control is starting.", false);
+            Dispatcher.BeginInvoke(new Action(() => Voice_Click(this, new RoutedEventArgs())));
         }
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
     }
@@ -399,6 +406,7 @@ public partial class MainWindow : Window
             MicButton.Content = "×";
             await EnsureModelAsync(voiceSetupCancellation.Token);
             voiceSetupCancellation.Token.ThrowIfCancellationRequested();
+            if (voiceFactory == null) voiceFactory = await Task.Run(() => WhisperFactory.FromPath(ModelFile));
             if (WaveIn.DeviceCount == 0)
                 throw new InvalidOperationException("No microphone was found. Connect a microphone and enable Windows microphone access.");
             listening = true;
@@ -483,49 +491,104 @@ public partial class MainWindow : Window
     }
     private void StartRecording()
     {
-        if (!listening || processingAudio) return;
+        if (!listening || processingAudio || microphone != null) return;
         currentRecording = Path.Combine(Path.GetTempPath(), "madi-voice-" + Guid.NewGuid().ToString("N") + ".wav");
+        captureStarted = DateTime.UtcNow;
+        firstSpeech = DateTime.MinValue;
+        lastSpeech = DateTime.MinValue;
+        speechFrames = 0;
+        Interlocked.Exchange(ref stopRequested, 0);
         microphone = new WaveInEvent { WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
         waveWriter = new WaveFileWriter(currentRecording, microphone.WaveFormat);
-        microphone.DataAvailable += (_, e) => waveWriter?.Write(e.Buffer, 0, e.BytesRecorded);
-        microphone.RecordingStopped += async (_, _) =>
+        microphone.DataAvailable += (_, e) =>
         {
-            voiceChunk.Stop();
-            var file = currentRecording;
-            try { waveWriter?.Dispose(); microphone?.Dispose(); } catch { }
-            waveWriter = null; microphone = null;
-            if (!listening || file == null) { if (file != null) TryDelete(file); return; }
-            processingAudio = true;
-            try { await TranscribeAsync(file); }
-            catch (Exception ex) { Respond("Voice recognition error: " + ex.Message); }
-            finally
+            waveWriter?.Write(e.Buffer, 0, e.BytesRecorded);
+            if (Interlocked.CompareExchange(ref stopRequested, 0, 0) != 0) return;
+            // Detect speech and end a command after a short silence instead of
+            // making the user wait for a fixed seven-second recording.
+            long energy = 0;
+            int samples = e.BytesRecorded / 2;
+            for (int i = 0; i < e.BytesRecorded - 1; i += 2)
             {
-                processingAudio = false;
-                TryDelete(file);
-                // Avoid feeding Madi AI's own spoken reply back into speech recognition.
-                var deadline = DateTime.UtcNow.AddSeconds(12);
-                while (listening && speaker.State == SynthesizerState.Speaking && DateTime.UtcNow < deadline)
-                    await Task.Delay(150);
-                if (listening) StartRecording();
+                short sample = (short)(e.Buffer[i] | (e.Buffer[i + 1] << 8));
+                energy += (long)sample * sample;
             }
+            double rms = samples > 0 ? Math.Sqrt((double)energy / samples) / 32768.0 : 0;
+            var now = DateTime.UtcNow;
+            if (rms > 0.022)
+            {
+                speechFrames++;
+                if (speechFrames >= 2)
+                {
+                    if (firstSpeech == DateTime.MinValue) firstSpeech = now;
+                    lastSpeech = now;
+                }
+            }
+            else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
+            if (firstSpeech != DateTime.MinValue &&
+                (now - firstSpeech).TotalMilliseconds >= 300 &&
+                (now - lastSpeech).TotalMilliseconds >= 650)
+            {
+                if (Interlocked.Exchange(ref stopRequested, 1) == 0)
+                    Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
+            }
+        };
+        microphone.RecordingStopped += (_, _) =>
+        {
+            Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                voiceChunk.Stop();
+                var file = currentRecording;
+                try { waveWriter?.Dispose(); microphone?.Dispose(); } catch { }
+                waveWriter = null; microphone = null;
+                if (file == null) return;
+                if (!listening || firstSpeech == DateTime.MinValue)
+                {
+                    TryDelete(file);
+                    if (listening) StartRecording();
+                    return;
+                }
+                processingAudio = true;
+                try { await TranscribeAsync(file); }
+                catch (Exception ex) { Respond("Voice recognition error: " + ex.Message, false); }
+                finally
+                {
+                    processingAudio = false;
+                    TryDelete(file);
+                    // Don't record the assistant's own spoken response.
+                    var deadline = DateTime.UtcNow.AddSeconds(10);
+                    while (listening && speaker.State == SynthesizerState.Speaking && DateTime.UtcNow < deadline)
+                        await Task.Delay(100);
+                    if (listening) StartRecording();
+                }
+            }));
         };
         microphone.StartRecording();
         voiceChunk.Start();
     }
     private async Task TranscribeAsync(string wavPath)
     {
-        Respond("Processing speech locally...", false);
-        using var factory = WhisperFactory.FromPath(ModelFile);
+        ListenStatus.Text = "● Understanding";
+        CoreState.Text = "MADI AI • UNDERSTANDING";
         var selected = LanguagePicker.SelectedIndex;
-        using var processor = factory.CreateBuilder().WithLanguage(selected == 1 ? "en" : selected == 2 ? "ur" : selected == 3 ? "hi" : "auto").Build();
-        using var stream = File.OpenRead(wavPath);
-        var transcript = new StringBuilder();
-        await foreach (var segment in processor.ProcessAsync(stream))
-            transcript.Append(segment.Text).Append(' ');
-        var recognized = transcript.ToString().Trim();
-        if (!string.IsNullOrWhiteSpace(recognized)) { CommandBox.Text = recognized; Execute(recognized); }
-        else Respond("Listening...", false);
+        var language = selected == 1 ? "en" : selected == 2 ? "ur" : selected == 3 ? "hi" : "auto";
+        var factory = voiceFactory ?? throw new InvalidOperationException("Speech engine not initialized.");
+        var recognized = await Task.Run(async () =>
+        {
+            using var processor = factory.CreateBuilder().WithLanguage(language).Build();
+            using var stream = File.OpenRead(wavPath);
+            var transcript = new StringBuilder();
+            await foreach (var segment in processor.ProcessAsync(stream))
+                transcript.Append(segment.Text).Append(' ');
+            return transcript.ToString().Trim();
+        });
+        if (!string.IsNullOrWhiteSpace(recognized))
+        {
+            StatusText.Text = "Heard: " + recognized;
+            Execute(recognized);
+        }
         ListenStatus.Text = listening ? "● Listening" : "● Standby";
+        CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
