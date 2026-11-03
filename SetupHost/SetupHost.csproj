@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>Madi-AI-Setup</AssemblyName><ApplicationIcon>../assets/madi.ico</ApplicationIcon></PropertyGroup>
+<ItemGroup><EmbeddedResource Include="../app-package.zip" LogicalName="MadiAI.Payload" /><Resource Include="../assets/madi.png" Link="madi.png" /></ItemGroup>
+</Project>

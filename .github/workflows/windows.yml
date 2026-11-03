@@ -21,14 +21,14 @@ jobs:
       - name: Publish native Madi AI
         shell: pwsh
         run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
-      - name: Install NSIS
+      - name: Bundle app payload
         shell: pwsh
-        run: choco install nsis -y --no-progress
-      - name: Build installer
+        run: Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
+      - name: Publish dark-themed installer and uninstaller
         shell: pwsh
-        run: '& "C:\Program Files (x86)\NSIS\makensis.exe" installer\madi.nsi'
+        run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
       - uses: actions/upload-artifact@v4
         with:
-          name: Madi-AI-Windows-Installer
-          path: installer/Madi-AI-Setup.exe
+          name: Madi-AI-Native-Dark-Installer
+          path: setup/Madi-AI-Setup.exe
           if-no-files-found: error

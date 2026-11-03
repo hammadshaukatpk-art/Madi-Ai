@@ -1,21 +1,26 @@
-# Madi AI — native Windows desktop starter
+# Madi AI — Native Windows assistant (development build)
 
-The interface is built in **native WPF / .NET 8**, not HTML or Electron. The supplied futuristic dark-blue and cyan Madi AI image is the visual direction.
+Madi AI is a native .NET 8 WPF Windows desktop application, **not HTML, Electron or a web-based UI**. The original Madi AI futuristic image is the design reference. The dashboard includes a holographic assistant illustration, animated rings, dark-blue system panels, quick actions, app dock, and top-right START / minimize / maximize / close controls.
 
-**Current starter features:** animated holographic orbit interface; dark command dashboard; first-run secret-code enrollment and later verification with a salted PBKDF2 hash (code not stored in GitHub); spoken "Tell me your secret code to open me" greeting and "Welcome, Boss Hammad" after unlock; limited offline English voice recognition (if Windows speech components are installed), typing commands to open basic Windows apps, web services and a chosen file; arithmetic; basic chat greetings. No paid API is required for these basic actions.
+## Setup
+The GitHub Actions workflow builds a **self-contained, dark-themed WPF installer and uninstaller**. Download the latest successful **Madi-AI-Native-Dark-Installer** artifact, extract the ZIP, then run `Madi-AI-Setup.exe`. The custom setup UI installs and creates desktop/Start Menu shortcuts without CMD.
 
-**Not yet working:** general AI chat, general free-form speech transcription, native computer vision, MT5 trading, automatic eBay/Canva/AliExpress operations, WhatsApp messaging or AI voice calls, complete system settings control, and full dark custom installer wizard. These require additional integration and testing. Do not enable high-impact actions without safeguards.
+On first app launch, enter a secret code of 6+ characters. The code is **never embedded in source code**: only a PBKDF2 salted hash is stored in `%LOCALAPPDATA%\MadiAI\unlock.json`. Later launches verify the same code. Updates and uninstall do not delete that profile. No code or credential should be committed to this public repo.
 
-## Windows installation
+## Voice and languages
+The START button records audio in segments and transcribes it **locally** with the free multilingual Whisper tiny model, supporting English, Urdu and Hindi transcription. On first voice use the app automatically downloads the model (about 75 MB); internet is needed for that first download. No paid API or subscription. Speech transcription quality varies by accent, language and noise; Windows speech replies depend on locally installed voices, so Urdu/Hindi spoken replies are not guaranteed on every machine.
 
-A GitHub Actions workflow builds a self-contained Windows app and NSIS installer. Open **Actions → Build Native Madi AI**, select a successful run and download the **Madi-AI-Windows-Installer** artifact. Extract the archive and launch `Madi-AI-Setup.exe`. This is an unsigned development installer, not a tested production release. On first start, choose your desired secret code (six or more characters). This avoids checking passwords into a public repository.
+## Working starter capabilities
+- Basic app launch, supported websites, web searches, calculator, screenshots, files, Windows settings, time/date, and simple conversational greetings.
+- Live CPU/RAM/disk metrics, animated dashboard, and native window controls.
+- Safe confirmation before shutdown/restart.
+- Spoken startup prompt and welcome message.
+
+## Not yet implemented
+- General-purpose local LLM chat, arbitrary desktop automation, fully automated eBay/AliExpress/Canva, WhatsApp personal voice call handling, unattended MT5 trading and broker integration.
+- This alpha is **not** a fully autonomous assistant and must not be used to execute real financial transactions.
+- The original image is a visual specification, but the dashboard is an original native recreation, not a pixel-identical screenshot.
+- The installer is unsigned and may trigger SmartScreen warnings. Windows testing is required.
 
 ## Developer build
-
-Requires .NET SDK 8 on Windows:
-
-```powershell
-dotnet run --project MadiAI/MadiAI.csproj
-```
-
-We will iterate on the native UI and module integrations. No user credentials, payment details or trading keys belong in the repository.
+On Windows with .NET 8 SDK, generate assets with `python tools/generate_assets.py` (Pillow required), then build the WPF app. The CI workflow builds both application and installer automatically.
