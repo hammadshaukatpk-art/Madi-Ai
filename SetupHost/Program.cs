@@ -34,6 +34,7 @@ public sealed class SetupWindow : Window
  static readonly Brush Panel=new SolidColorBrush(Color.FromRgb(7,25,49));
  readonly string target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","MadiAI");
  readonly bool uninstall;
+ bool finished;
  readonly TextBlock status=new(){FontSize=14,Foreground=Ink,TextWrapping=TextWrapping.Wrap,HorizontalAlignment=HorizontalAlignment.Center};
  readonly ProgressBar progress=new(){Height=13,Minimum=0,Maximum=100,Value=0,Foreground=new SolidColorBrush(Cyan),Background=new SolidColorBrush(Color.FromRgb(12,43,77)),Margin=new Thickness(0,17,0,17)};
  readonly Button primary=new(){Height=48,FontSize=17,FontWeight=FontWeights.Bold,Foreground=Brushes.White,Background=new SolidColorBrush(Color.FromRgb(16,102,163)),BorderBrush=new SolidColorBrush(Cyan),BorderThickness=new Thickness(2),Cursor=System.Windows.Input.Cursors.Hand};
@@ -62,8 +63,13 @@ public sealed class SetupWindow : Window
   body.Children.Add(progress);
   if(!remove)body.Children.Add(launch);
   primary.Content=remove?"UNINSTALL MADI AI":"INSTALL MADI AI";
-  primary.Margin=new Thickness(90,13,90,0);primary.Click+=async (_,_)=>await ExecuteAsync();body.Children.Add(primary);
+  primary.Margin=new Thickness(90,13,90,0);primary.Click+=Primary_Click;body.Children.Add(primary);
   body.Children.Add(new TextBlock{Text="MADI AI  •  DARK CYBER INTERFACE  •  FREE LOCAL CORE",Foreground=new SolidColorBrush(Color.FromRgb(73,153,194)),FontSize=11,HorizontalAlignment=HorizontalAlignment.Center,Margin=new Thickness(0,22,0,0)});
+ }
+ async void Primary_Click(object sender,RoutedEventArgs e)
+ {
+  if(finished){if(!uninstall && launch.IsChecked==true)TryLaunch();Close();return;}
+  await ExecuteAsync();
  }
  async System.Threading.Tasks.Task ExecuteAsync()
  {
@@ -75,16 +81,13 @@ public sealed class SetupWindow : Window
    await System.Threading.Tasks.Task.Run(uninstall?Remove:Install);
    progress.IsIndeterminate=false;progress.Value=100;
    status.Text=uninstall?"Madi AI was uninstalled. Your saved secret code was preserved.":"Madi AI was installed successfully.";
-   primary.Content="FINISH";primary.IsEnabled=true;
-   primary.Click-=NoOp; // no operation; finish handler below
-   primary.Click+=(_,_)=>{if(!uninstall && launch.IsChecked==true)TryLaunch();Close();};
+   primary.Content="FINISH";finished=true;primary.IsEnabled=true;
   }
   catch(Exception ex)
   {
-   progress.IsIndeterminate=false;status.Text="Unable to finish: "+ex.Message;primary.Content="CLOSE";primary.IsEnabled=true;primary.Click+=(_,_)=>Close();
+   progress.IsIndeterminate=false;status.Text="Unable to finish: "+ex.Message;primary.Content="CLOSE";finished=true;primary.IsEnabled=true;
   }
  }
- void NoOp(object? sender,RoutedEventArgs e){}
  void TryLaunch(){try{Process.Start(new ProcessStartInfo(Path.Combine(target,"MadiAI.exe")){UseShellExecute=true});}catch{}}
  void Install()
  {
