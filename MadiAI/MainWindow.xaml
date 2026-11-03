@@ -101,14 +101,14 @@
   <Border Width="308" Height="354" Canvas.Left="243" Canvas.Top="295" Style="{StaticResource PanelStyle}">
    <StackPanel>
     <TextBlock Style="{StaticResource GlowText}" Text="✦  Active Modules" Margin="0,0,0,10"/>
-    <TextBlock Text="●  Voice Assistant (speech model)" Foreground="#62E9FF" Margin="8,7"/>
-    <TextBlock Text="●  App Control" Margin="8,7"/>
-    <TextBlock Text="●  Web links and search" Margin="8,7"/>
-    <TextBlock Text="◌  Trading (MT5) — not connected" Margin="8,7" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  eBay / AliExpress — planned" Margin="8,7" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  WhatsApp integration — not connected" Margin="8,7" Foreground="#9EADC1"/>
-    <TextBlock Text="●  YouTube launcher" Margin="8,7"/>
-    <TextBlock Text="◌  Canva automation — not connected" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" Foreground="#62E9FF" Margin="8,7"/>
+    <TextBlock Text="●  Windows app launcher" Margin="8,7"/>
+    <TextBlock Text="●  Web &amp; Chrome profiles" Margin="8,7"/>
+    <TextBlock Text="◌  MT5 • launch only" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="◌  eBay / AliExpress • web" Margin="8,7" Foreground="#9EADC1"/>
+    <TextBlock Text="●  WhatsApp • web" Margin="8,7"/>
+    <TextBlock Text="●  YouTube • web" Margin="8,7"/>
+    <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • check Settings" Margin="8,7" Foreground="#9EADC1"/>
    </StackPanel>
   </Border>
   <Border Width="552" Height="518" Canvas.Left="555" Canvas.Top="182" Background="Transparent">
