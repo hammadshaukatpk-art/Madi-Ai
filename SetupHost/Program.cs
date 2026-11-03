@@ -14,6 +14,7 @@ internal static class Program
 {
  [STAThread] static void Main(string[] args)
  {
+  var smoke = args.Contains("--smoke-ui", StringComparer.OrdinalIgnoreCase);
   try
   {
    if (args.Contains("/uninstall", StringComparer.OrdinalIgnoreCase))
@@ -27,7 +28,7 @@ internal static class Program
    var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
    app.DispatcherUnhandledException += (_, e) =>
    {
-    ShowError(e.Exception);
+    if (smoke) LogError(e.Exception); else ShowError(e.Exception);
     e.Handled = true;
     app.Shutdown(1);
    };
@@ -35,9 +36,20 @@ internal static class Program
    {
     if (e.ExceptionObject is Exception ex) LogError(ex);
    };
-   app.Run(new SetupWindow(uninstall));
+   if (smoke)
+   {
+    var log = Path.Combine(Path.GetTempPath(), "madi-setup-smoke.log");
+    File.WriteAllText(log, "Process entered Main at " + DateTime.UtcNow.ToString("O") + Environment.NewLine);
+    var win = new SetupWindow(false);
+    win.Loaded += (_, _) => File.AppendAllText(log, "WPF setup window Loaded" + Environment.NewLine);
+    var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+    timer.Tick += (_, _) => { timer.Stop(); File.AppendAllText(log, "Window visible: " + win.IsVisible + "; loaded: " + win.IsLoaded + Environment.NewLine); app.Shutdown(win.IsLoaded ? 0 : 3); };
+    timer.Start();
+    app.Run(win);
+   }
+   else app.Run(new SetupWindow(uninstall));
   }
-  catch (Exception ex) { ShowError(ex); }
+  catch (Exception ex) { if (smoke) { LogError(ex); Environment.ExitCode = 4; } else ShowError(ex); }
  }
  static void ShowError(Exception ex)
  {
