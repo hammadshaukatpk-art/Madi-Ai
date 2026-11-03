@@ -42,13 +42,13 @@ f.arc((130,618,570,720),0,180,fill=(46,214,255,175),width=3)
 # 3D skull ellipse, darker toward edges and bottom, brighter central ridge
 for ry in range(254,12,-2):
     t=1-ry/254
-    r=int(8+28*t)
-    b=int(32+115*t)
-    a=int(30+80*t)
+    r=int(13+53*t)
+    b=int(56+175*t)
+    a=int(45+128*t)
     f.ellipse((cx-194*(ry/254),52+254-ry,cx+194*(ry/254),52+254+ry),fill=(r,b,150,a))
 # Face contour in front
-f.arc((158,51,542,568),188,354,fill=(39,202,255,220),width=4)
-f.arc((158,51,542,568),5,175,fill=(21,128,240,170),width=3)
+f.arc((158,51,542,568),188,354,fill=(61,231,255,255),width=7)
+f.arc((158,51,542,568),5,175,fill=(42,187,255,230),width=5)
 # Perspective vertical latitude wireframe, sparse enough to preserve face depth
 for y in range(76,554,11):
     ny=(y-308)/256
@@ -72,20 +72,20 @@ for x,sgn in [(153,-1),(547,1)]:
 for ex in (275,425):
     f.arc((ex-63,276,ex+63,332),180,356,fill=(25,170,255,175),width=3)
     g.ellipse((ex-47,300,ex+47,322),fill=(21,211,255,225))
-    f.ellipse((ex-36,303,ex+36,317),fill=(161,248,255,255))
-    f.ellipse((ex-12,304,ex+12,318),fill=(245,255,255,245))
+    f.ellipse((ex-40,301,ex+40,321),fill=(161,248,255,255))
+    f.ellipse((ex-16,302,ex+16,320),fill=(245,255,255,255))
 # Nose ridge and realistic lip contour
 f.line([(348,314),(341,367),(328,411),(350,420),(373,414)],fill=(62,210,255,170),width=3)
-f.arc((304,442,396,477),3,175,fill=(55,211,255,220),width=3)
+f.arc((300,438,400,477),3,175,fill=(75,226,255,245),width=4)
 f.arc((308,457,393,490),182,350,fill=(42,161,245,180),width=2)
 f.arc((287,486,413,520),8,173,fill=(22,127,225,100),width=2)
 # Blue pixel constellation and soft center highlights
-for _ in range(6000):
+for _ in range(13500):
     x=random.randrange(162,538);y=random.randrange(68,559)
     if ((x-350)/190)**2+((y-307)/255)**2>=.98: continue
     radial=((x-350)/190)**2+((y-307)/255)**2
-    alpha=int(25+random.randrange(30,150)*(1-radial*.6))
-    f.point((x,y),fill=(58,194,255,alpha))
+    alpha=int(45+random.randrange(50,195)*(1-radial*.5))
+    f.point((x,y),fill=(66,210,255,alpha))
 for _ in range(110):
     x=random.randrange(185,516);y=random.randrange(85,527)
     if ((x-350)/190)**2+((y-307)/255)**2<.91:
@@ -93,9 +93,31 @@ for _ in range(110):
         f.ellipse((x-rr,y-rr,x+rr,y+rr),fill=(80,217,255,random.randrange(100,225)))
 # Edge glow and eyes glow
 halo=face.filter(ImageFilter.GaussianBlur(16))
-halo.putalpha(halo.getchannel("A").point(lambda v:int(v*.30)))
+halo.putalpha(halo.getchannel("A").point(lambda v:int(v*.68)))
 face=Image.alpha_composite(halo,face)
 eyeGlow=glow.filter(ImageFilter.GaussianBlur(18))
 face=Image.alpha_composite(face,eyeGlow)
+# Brighter reference-style luminous eyes, volumetric cheeks and projected collar.
+# The image is generated from original geometry, rather than copying a flat UI screenshot.
+light=Image.new("RGBA",(W,H),(0,0,0,0))
+ld=ImageDraw.Draw(light,"RGBA")
+for ex in (275,425):
+    ld.ellipse((ex-58,286,ex+58,337),fill=(8,163,255,155))
+    ld.ellipse((ex-43,298,ex+43,321),fill=(95,229,255,255))
+    ld.ellipse((ex-26,302,ex+26,317),fill=(232,255,255,255))
+light=light.filter(ImageFilter.GaussianBlur(16))
+face=Image.alpha_composite(face,light)
+detail=Image.new("RGBA",(W,H),(0,0,0,0))
+dd=ImageDraw.Draw(detail,"RGBA")
+for ex in (275,425):
+    dd.ellipse((ex-42,299,ex+42,320),fill=(51,206,255,255))
+    dd.ellipse((ex-28,302,ex+28,316),fill=(222,252,255,255))
+    dd.line((ex-47,299,ex+47,299),fill=(97,235,255,230),width=2)
+dd.arc((192,145,508,510),5,175,fill=(28,192,255,140),width=2)
+dd.arc((205,164,495,510),185,355,fill=(53,217,255,95),width=2)
+dd.line([(294,499),(290,571),(258,611)],fill=(57,214,255,175),width=3)
+dd.line([(406,499),(410,571),(442,611)],fill=(57,214,255,175),width=3)
+dd.arc((182,605,518,715),180,355,fill=(39,214,255,220),width=4)
+face=Image.alpha_composite(face,detail)
 face.save("assets/assistant.png")
 print("Generated 1024px Madi icon and HD holographic point-cloud assistant")
