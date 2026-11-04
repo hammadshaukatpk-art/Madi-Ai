@@ -101,6 +101,27 @@ internal static class Program
             finally { try { System.IO.Directory.Delete(folder, true); } catch { } }
             return;
         }
+        if (args.Contains("--smoke-indic-voice", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                foreach (var sample in new[] { ("hi", "नमस्ते, मैं माडी हूँ।"), ("ur", "السلام علیکم، میں ماڈی ہوں۔") })
+                {
+                    var wav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-indic-smoke-" + sample.Item1 + ".wav");
+                    try
+                    {
+                        if (!IndicVoice.SynthesizeToFile(sample.Item2, wav, sample.Item1))
+                            throw new InvalidOperationException(sample.Item1 + " offline synthesis failed.");
+                        using var audio = new NAudio.Wave.WaveFileReader(wav);
+                        if (audio.TotalTime.TotalSeconds < 0.5)
+                            throw new InvalidOperationException(sample.Item1 + " synthesis output was too short.");
+                    }
+                    finally { try { System.IO.File.Delete(wav); } catch { } }
+                }
+            }
+            catch (Exception ex) { System.Console.Error.WriteLine(ex); Environment.ExitCode = 12; }
+            return;
+        }
         if (args.Contains("--smoke-voice", StringComparer.OrdinalIgnoreCase))
         {
             try
