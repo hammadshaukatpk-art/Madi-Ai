@@ -479,7 +479,7 @@ public partial class MainWindow : Window
     {
         if (text.StartsWith("find file ") || text.StartsWith("locate file ") || text.StartsWith("search my files "))
         {
-            var name = text.StartsWith("search my files ") ? text[16..] : text[10..];
+            var name = text.StartsWith("search my files ") ? text[16..] : text.StartsWith("locate file ") ? text[12..] : text[10..];
             if (name.Length < 2 || name.Length > 100) { Respond("Please specify a file name to search for.", false); return true; }
             _ = FindLocalFilesAsync(name);
             return true;
