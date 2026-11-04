@@ -62,6 +62,10 @@ public partial class MainWindow : Window
     private bool chatPending;
     private bool installingLocalAi;
     private readonly List<(string Role, string Content)> chatHistory = new();
+    private string? selectedModel;
+    private double smoothedCpu = -1;
+    private string ChatHistoryFile => Path.Combine(profile, "conversation.json");
+    private string SelectedModelFile => Path.Combine(profile, "selected-model.txt");
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
 
@@ -71,6 +75,7 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        LoadConversationHistory();
         try
         {
             var settingsFile = Path.Combine(profile, "settings.json");
@@ -125,7 +130,68 @@ public partial class MainWindow : Window
     private void Respond(string message, bool speak = true)
     {
         StatusText.Text = message;
+        AppendConversation("Madi", message);
         if (speak) Speak(message);
+    }
+
+    private void AppendConversation(string who, string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
+        ConversationText.AppendText($"{who}: {message.Trim()}\n\n");
+        ConversationText.ScrollToEnd();
+    }
+
+    private void LoadConversationHistory()
+    {
+        try
+        {
+            if (File.Exists(SelectedModelFile))
+                selectedModel = File.ReadAllText(SelectedModelFile).Trim();
+            if (!File.Exists(ChatHistoryFile)) return;
+            using var data = JsonDocument.Parse(File.ReadAllText(ChatHistoryFile));
+            foreach (var item in data.RootElement.EnumerateArray().TakeLast(100))
+            {
+                var role = item.GetProperty("role").GetString();
+                var content = item.GetProperty("content").GetString();
+                if ((role == "user" || role == "assistant") && !string.IsNullOrWhiteSpace(content))
+                    chatHistory.Add((role, content));
+            }
+            foreach (var entry in chatHistory.TakeLast(12))
+                AppendConversation(entry.Role == "user" ? "You" : "Madi", entry.Content);
+        }
+        catch (Exception) { chatHistory.Clear(); }
+    }
+
+    private void SaveConversationHistory()
+    {
+        try
+        {
+            var entries = chatHistory.TakeLast(100).Select(e => new { role = e.Role, content = e.Content });
+            var temp = ChatHistoryFile + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(entries));
+            File.Move(temp, ChatHistoryFile, true);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private async Task<List<string>> GetInstalledModelsAsync()
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            using var response = await http.GetAsync("http://127.0.0.1:11434/api/tags", timeout.Token);
+            response.EnsureSuccessStatusCode();
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
+            return json.RootElement.GetProperty("models").EnumerateArray()
+                .Select(m => m.GetProperty("name").GetString())
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Select(m => m!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or JsonException)
+        {
+            return new List<string>();
+        }
     }
 
     private void Unlock()
@@ -193,6 +259,7 @@ public partial class MainWindow : Window
     {
         if (!unlocked || string.IsNullOrWhiteSpace(raw)) return;
         var text = Normalize(raw);
+        AppendConversation("You", raw);
         CommandBox.Text = "";
         try
         {
@@ -324,59 +391,90 @@ public partial class MainWindow : Window
 
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("Please wait for the current answer.", false); return; }
+        if (chatPending) { Respond("I am still answering your previous question.", false); return; }
         chatPending = true;
         try
         {
-            LocalAiModuleText.Text = "◌  Local AI • checking";
             CoreState.Text = "MADI AI • THINKING";
-            Respond("Checking local AI model...", false);
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
-            using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
-            tagsResponse.EnsureSuccessStatusCode();
-            using var tags = JsonDocument.Parse(await tagsResponse.Content.ReadAsStringAsync());
-            var models = tags.RootElement.GetProperty("models").EnumerateArray()
-                .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
+            var models = await GetInstalledModelsAsync();
             if (models.Count == 0)
             {
-                LocalAiModuleText.Text = "◌  Local AI • model required";
-                Respond("Offline AI needs a language model. Open Settings and choose Enable Local AI.");
+                LocalAiModuleText.Text = "◌  Local AI • disconnected";
+                Respond("Ollama is not reachable or no model is installed. Start Ollama and check Settings.", false);
                 return;
             }
-            var model = models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
+            var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+                ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+                ?? models.FirstOrDefault(m => m.StartsWith("llama3.2", StringComparison.OrdinalIgnoreCase))
                 ?? models[0];
+            LocalAiModuleText.Text = "●  Local AI • " + model;
             var messages = new List<object>
             {
-                new { role = "system", content = "You are Madi AI, a helpful concise Windows desktop assistant. Respond in the user's language. Never claim to have opened applications, placed trades, sent messages, or changed files unless an action was actually performed. Be clear when a capability is unavailable. Keep spoken replies brief." }
+                new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information." }
             };
-            foreach (var entry in chatHistory.TakeLast(8))
+            foreach (var entry in chatHistory.TakeLast(12))
                 messages.Add(new { role = entry.Role, content = entry.Content });
             messages.Add(new { role = "user", content = question });
-            var payload = JsonSerializer.Serialize(new { model, stream = false, messages, options = new { num_predict = 180 } });
-            using var request = new StringContent(payload, Encoding.UTF8, "application/json");
-            using var response = await client.PostAsync("http://127.0.0.1:11434/api/chat", request);
+            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 240 } });
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:11434/api/chat")
+            { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
-            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer."); return; }
-            LocalAiModuleText.Text = "●  Local AI • ready";
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var answer = new StringBuilder();
+            ConversationText.AppendText("Madi: ");
+            var lastUiUpdate = DateTime.UtcNow;
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var chunk = JsonDocument.Parse(line);
+                if (chunk.RootElement.TryGetProperty("error", out var error))
+                    throw new InvalidOperationException(error.GetString());
+                if (chunk.RootElement.TryGetProperty("message", out var message) &&
+                    message.TryGetProperty("content", out var content))
+                {
+                    var part = content.GetString();
+                    if (!string.IsNullOrEmpty(part))
+                    {
+                        answer.Append(part);
+                        ConversationText.AppendText(part);
+                        if ((DateTime.UtcNow - lastUiUpdate).TotalMilliseconds > 120)
+                        {
+                            ConversationText.ScrollToEnd();
+                            var current = answer.ToString();
+                            StatusText.Text = current.Length > 150 ? current[^150..] : current;
+                            lastUiUpdate = DateTime.UtcNow;
+                        }
+                    }
+                }
+                if (chunk.RootElement.TryGetProperty("done", out var done) && done.GetBoolean()) break;
+            }
+            ConversationText.AppendText("\n\n");
+            ConversationText.ScrollToEnd();
+            var result = answer.ToString().Trim();
+            if (result.Length == 0) { Respond("The local model returned an empty answer.", false); return; }
             chatHistory.Add(("user", question));
-            chatHistory.Add(("assistant", answer));
-            if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
-            Respond(answer);
+            chatHistory.Add(("assistant", result));
+            if (chatHistory.Count > 100) chatHistory.RemoveRange(0, chatHistory.Count - 100);
+            SaveConversationHistory();
+            StatusText.Text = result;
+            Speak(result);
         }
         catch (HttpRequestException)
         {
-            LocalAiModuleText.Text = "◌  Local AI • not running";
-            Respond("Offline AI is not ready. Open Settings to install a free local model. App-opening commands still work.");
+            LocalAiModuleText.Text = "◌  Local AI • disconnected";
+            Respond("Ollama is not reachable. Start Ollama and try again.", false);
         }
         catch (TaskCanceledException)
         {
-            Respond("The local AI response timed out. Please try again.");
+            Respond("The local model took too long. Try a smaller model in Settings.", false);
         }
         catch (Exception ex)
         {
-            Respond("Local AI chat error: " + ex.Message);
+            Respond("Local AI error: " + ex.Message, false);
         }
         finally { chatPending = false; CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE"; }
     }
@@ -618,7 +716,11 @@ public partial class MainWindow : Window
                 var i = ToLong(idle); var k = ToLong(kernel); var u = ToLong(user);
                 var deltaTotal = (k - oldKernel) + (u - oldUser);
                 if (deltaTotal > 0 && oldKernel != 0)
-                    CpuValue.Text = Math.Clamp(Math.Round(100 * (1 - (i - oldIdle) / (double)deltaTotal)), 0, 100) + "%";
+                {
+                    var currentCpu = Math.Clamp(100 * (1 - (i - oldIdle) / (double)deltaTotal), 0, 100);
+                    smoothedCpu = smoothedCpu < 0 ? currentCpu : smoothedCpu * 0.65 + currentCpu * 0.35;
+                    CpuValue.Text = Math.Round(smoothedCpu) + "%";
+                }
                 oldIdle = i; oldKernel = k; oldUser = u;
             }
         }
