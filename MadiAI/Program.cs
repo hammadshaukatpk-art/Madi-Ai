@@ -128,6 +128,10 @@ internal static class Program
             {
                 var picker = (System.Windows.Controls.ComboBox?)win.FindName("LanguagePicker");
                 if (picker == null) throw new InvalidOperationException("Language dropdown missing.");
+                foreach (var element in new[] { "ConversationText", "CommandBox", "MicButton", "CoreState",
+                    "Mt5ModuleText", "LocalAiModuleText", "VoiceModuleText", "GateOverlay" })
+                    if (win.FindName(element) == null)
+                        throw new InvalidOperationException("Dashboard element missing: " + element);
                 picker.SelectedIndex = 2;
                 System.IO.File.AppendAllText(log, "Main window loaded; language selection: " + picker.SelectedIndex + Environment.NewLine);
                 picker.SelectedIndex = 0;
