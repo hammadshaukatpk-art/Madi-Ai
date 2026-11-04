@@ -407,7 +407,7 @@ public partial class MainWindow : Window
         // Ordinary conversation goes directly to streaming chat. Only an
         // apparent command is classified, so chit-chat stays responsive.
         var looksLikeCommand = Regex.IsMatch(normalized,
-            @"^(?:please |can you |could you |would you |madi |open |launch |start |show |bring |switch |focus |search |find |kholo |khol do |کھولو |खोलो )") ||
+            @"\b(?:open|launch|start|run|show|bring|switch|focus|search|find|kholo|khol|खोलो|کھولو)\b") ||
             normalized.Contains(" kholo") || normalized.Contains(" खोलो") || normalized.Contains(" کھولو");
         if (looksLikeCommand && !chatPending)
         {
