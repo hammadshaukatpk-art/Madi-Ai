@@ -91,40 +91,40 @@
    </DockPanel>
   </Border>
   <ScrollViewer Grid.Column="1" Margin="0,0,12,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
-   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,12">
+   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="9" Margin="0,0,0,8">
     <StackPanel>
-     <TextBlock Text="♧  SYSTEM MONITOR" FontWeight="Bold" FontSize="14" Foreground="#DBF7FF" Margin="0,0,0,12"/>
+     <TextBlock Text="♧  SYSTEM MONITOR" FontWeight="Bold" FontSize="14" Foreground="#DBF7FF" Margin="0,0,0,7"/>
      <UniformGrid Columns="3">
       <StackPanel Margin="3" HorizontalAlignment="Center">
-       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#19CFFF" BorderThickness="4" Background="#092747">
+       <Border Width="62" Height="62" CornerRadius="31" BorderBrush="#19CFFF" BorderThickness="4" Background="#092747">
         <StackPanel VerticalAlignment="Center"><TextBlock Text="CPU" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="CpuValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
        </Border>
       </StackPanel>
       <StackPanel Margin="3" HorizontalAlignment="Center">
-       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#2988EF" BorderThickness="4" Background="#092747">
+       <Border Width="62" Height="62" CornerRadius="31" BorderBrush="#2988EF" BorderThickness="4" Background="#092747">
         <StackPanel VerticalAlignment="Center"><TextBlock Text="RAM" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="RamValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
        </Border>
       </StackPanel>
       <StackPanel Margin="3" HorizontalAlignment="Center">
-       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#8B55F4" BorderThickness="4" Background="#092747">
+       <Border Width="62" Height="62" CornerRadius="31" BorderBrush="#8B55F4" BorderThickness="4" Background="#092747">
         <StackPanel VerticalAlignment="Center"><TextBlock Text="DISK" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="DiskValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
        </Border>
       </StackPanel>
      </UniformGrid>
     </StackPanel>
    </Border>
-   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12">
+   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="9">
     <StackPanel>
-     <TextBlock Text="✓  AI STATUS" FontSize="15" FontWeight="Bold" Foreground="#DFF8FF" Margin="0,0,0,12"/>
+     <TextBlock Text="✓  AI STATUS" FontSize="15" FontWeight="Bold" Foreground="#DFF8FF" Margin="0,0,0,6"/>
      <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" FontSize="12" Foreground="#8FD9EF" Margin="0,4" TextWrapping="Wrap"/>
-     <Separator Background="#194269" Margin="0,6"/>
+     <Separator Background="#194269" Margin="0,3"/>
      <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • checking" FontSize="12" Foreground="#A5D2F0" Margin="0,4" TextWrapping="Wrap"/>
-     <Separator Background="#194269" Margin="0,6"/>
+     <Separator Background="#194269" Margin="0,3"/>
      <TextBlock x:Name="Mt5ModuleText" Text="◌  MT5 • bridge offline" FontSize="12" Foreground="#A5D2F0" Margin="0,4" TextWrapping="Wrap"/>
-     <Separator Background="#194269" Margin="0,6"/>
-     <TextBlock Text="◈  Windows app control" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
-     <TextBlock Text="◎  Web &amp; research" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
-     <TextBlock Text="▱  Local files &amp; routines" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
+     <Separator Background="#194269" Margin="0,3"/>
+     <TextBlock Text="◈  Windows app control" FontSize="12" Foreground="#B5D5E8" Margin="0,3"/>
+     <TextBlock Text="◎  Web &amp; research" FontSize="12" Foreground="#B5D5E8" Margin="0,3"/>
+     <TextBlock Text="▱  Local files &amp; routines" FontSize="12" Foreground="#B5D5E8" Margin="0,3"/>
     </StackPanel>
    </Border>
   </StackPanel></ScrollViewer>
@@ -158,6 +158,18 @@
   </Grid>
   <Grid Grid.Column="3">
    <TabControl x:Name="RightPanelTabs" SelectedIndex="1" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
+    <TabControl.Resources>
+     <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="#A5D9F2"/>
+      <Setter Property="Background" Value="#071C36"/>
+      <Style.Triggers>
+       <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Foreground" Value="#075277"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+       </Trigger>
+      </Style.Triggers>
+     </Style>
+    </TabControl.Resources>
     <TabItem Header="CAPABILITIES" Background="#092342" Foreground="#EAF9FF">
      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
       <StackPanel>
