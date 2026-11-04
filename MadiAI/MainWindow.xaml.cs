@@ -175,6 +175,21 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException) { }
     }
 
+    private async Task RefreshLocalAiStatusAsync()
+    {
+        var models = await GetInstalledModelsAsync();
+        if (!unlocked) return;
+        if (models.Count == 0)
+        {
+            LocalAiModuleText.Text = "◌  Local AI • Ollama unavailable";
+            return;
+        }
+        var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+            ?? models[0];
+        LocalAiModuleText.Text = "●  Local AI • " + model;
+    }
+
     private async Task<List<string>> GetInstalledModelsAsync()
     {
         try
@@ -216,6 +231,7 @@ public partial class MainWindow : Window
             GateOverlay.Visibility = Visibility.Collapsed;
             CoreState.Text = "MADI AI • ONLINE";
             Respond("Madi AI unlocked. Voice control is starting.", false);
+            _ = RefreshLocalAiStatusAsync();
             Dispatcher.BeginInvoke(new Action(() => Voice_Click(this, new RoutedEventArgs())));
         }
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
