@@ -704,7 +704,9 @@ public partial class MainWindow : Window
                 OpenExistingMt5();
                 return;
             }
-            if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
+            if (Regex.IsMatch(text, @"^(?:take|capture|save|make|create|show) (?:a |the |my )?screenshot$") ||
+                text is "screenshot" or "اسکرین شاٹ لو" or "स्क्रीनशॉट लो")
+            { TakeScreenshot(); return; }
             if (text.StartsWith("search ") || text.StartsWith("find ") || text.StartsWith("تلاش ") || text.StartsWith("खोजो "))
             {
                 var query = text[(text.IndexOf(' ') + 1)..].Trim();
@@ -717,8 +719,10 @@ public partial class MainWindow : Window
                 var result = new DataTable().Compute(expression, null);
                 Respond("The result is " + result); return;
             }
-            if (Regex.IsMatch(text, @"\b(?:time|clock)\b") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
-            if (Regex.IsMatch(text, @"\bdate\b") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
+            if (Regex.IsMatch(text, @"^(?:time|clock|what(?:'s| is) the (?:current )?time|tell me the time|current time|time now|what time is it|what time is it now|kitna time hua|waqt kya hua|وقت کیا ہوا|अभी कितने बजे हैं)$"))
+            { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
+            if (Regex.IsMatch(text, @"^(?:date|today(?:'s)? date|what(?:'s| is) (?:today(?:'s)?|the current) date|what date is it|aaj ki tareekh|آج کی تاریخ|आज की तारीख)$"))
+            { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
             if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
             if (text is "hi" or "hello" or "hey" or "سلام" or "السلام علیکم" or "नमस्ते" ||
                 Regex.IsMatch(text, @"^(?:hello|hi|hey|salam|assalam|السلام|سلام|नमस्ते)[\s,!?.،۔]+(?:madi|maadi|माडी|ماڈی|there|assistant)?[\s,!?.،۔]*$"))
