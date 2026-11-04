@@ -21,6 +21,8 @@ internal static class Program
             try
             {
                 System.IO.Directory.CreateDirectory(folder);
+                if (!WindowsTextAutomation.HasValidNativeLayout)
+                    throw new InvalidOperationException("Win64 SendInput structure layout is invalid.");
                 var routines = new LocalRoutines(folder);
                 if (!routines.Save("morning", "open google; open notepad").StartsWith("Saved"))
                     throw new InvalidOperationException("Routine creation failed.");
