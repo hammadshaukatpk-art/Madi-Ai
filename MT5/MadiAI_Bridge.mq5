@@ -41,6 +41,11 @@ void PublishStatus()
    WriteLine(file, "balance", DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2));
    WriteLine(file, "equity", DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2));
    WriteLine(file, "free_margin", DoubleToString(AccountInfoDouble(ACCOUNT_MARGIN_FREE), 2));
+   WriteLine(file, "chart_symbol", _Symbol);
+   WriteLine(file, "chart_timeframe", EnumToString(_Period));
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   WriteLine(file, "bid", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), digits));
+   WriteLine(file, "ask", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), digits));
 
    int total = PositionsTotal();
    int limit = MathMin(total, 40);
