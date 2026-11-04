@@ -23,6 +23,16 @@ jobs:
       - name: Publish native Madi AI
         shell: pwsh
         run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish
+      - name: Verify MT5 bridge parser and stale-status protection
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-mt5-bridge' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "MT5 bridge parser smoke test failed: $($p.ExitCode)" }
+      - name: Bundle MT5 local bridge source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path publish/MT5 -Force | Out-Null
+          Copy-Item MT5/MadiAI_Bridge.mq5 publish/MT5/MadiAI_Bridge.mq5
       - name: Verify local memory persistence and privacy
         shell: pwsh
         run: |
