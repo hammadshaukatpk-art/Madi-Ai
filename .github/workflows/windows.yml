@@ -1,7 +1,7 @@
 name: Build Madi AI Windows
 on:
   push:
-    branches: [main]
+    branches: [main, fix/local-ai-detection-memory-voice-ui]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -84,6 +84,48 @@ jobs:
           $wav = Join-Path $env:RUNNER_TEMP 'madi-neural-en.wav'
           'Hello, I am Madi, your offline assistant.' | & $exe --model $english --output_file $wav
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wav) -or (Get-Item $wav).Length -lt 3000) { throw 'English Piper synthesis failed' }
+      - name: Bundle offline Hindi and Urdu speech models
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $version = 'v2.0.1'
+          $archive = Join-Path $env:RUNNER_TEMP 'sherpa-win.tar.bz2'
+          $extract = Join-Path $env:RUNNER_TEMP 'sherpa-extract'
+          New-Item -ItemType Directory -Path $extract -Force | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/k2-fsa/sherpa-onnx/releases/download/$version/sherpa-onnx-$version-win-x64-shared-MD-Release.tar.bz2" -OutFile $archive -MaximumRedirection 10
+          tar -xjf $archive -C $extract
+          if ($LASTEXITCODE -ne 0) { throw 'Sherpa Windows runtime extraction failed' }
+          $exe = Get-ChildItem -Path $extract -Recurse -Filter 'sherpa-onnx-offline-tts.exe' -File | Select-Object -First 1
+          if (-not $exe) { throw 'Sherpa offline TTS executable missing from runtime' }
+          New-Item -ItemType Directory -Path publish/sherpa/voices -Force | Out-Null
+          Copy-Item -Path (Join-Path $exe.Directory.FullName '*') -Destination publish/sherpa -Recurse -Force
+          $models = @('vits-piper-hi_IN-priyamvada-medium', 'vits-piper-ur_PK-fasih-medium')
+          foreach ($name in $models) {
+            $archive = Join-Path $env:RUNNER_TEMP "$name.tar.bz2"
+            Invoke-WebRequest -Uri "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$name.tar.bz2" -OutFile $archive -MaximumRedirection 10
+            tar -xjf $archive -C publish/sherpa/voices
+            if ($LASTEXITCODE -ne 0) { throw "Cannot extract voice model $name" }
+            $dir = "publish/sherpa/voices/$name"
+            if (-not (Test-Path "$dir/tokens.txt") -or -not (Test-Path "$dir/espeak-ng-data")) {
+              throw "Voice model $name is incomplete"
+            }
+          }
+      - name: Verify real offline Hindi and Urdu synthesis
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path publish/sherpa/sherpa-onnx-offline-tts.exe).Path
+          $samples = @(
+            @{ model='vits-piper-hi_IN-priyamvada-medium'; voice='hi_IN-priyamvada-medium.onnx'; text='नमस्ते, मैं माडी हूँ।'; lang='hi' },
+            @{ model='vits-piper-ur_PK-fasih-medium'; voice='ur_PK-fasih-medium.onnx'; text='السلام علیکم، میں ماڈی ہوں۔'; lang='ur' }
+          )
+          foreach ($sample in $samples) {
+            $folder = (Resolve-Path "publish/sherpa/voices/$($sample.model)").Path
+            $wav = Join-Path $env:RUNNER_TEMP "madi-$($sample.lang).wav"
+            & $exe "--vits-model=$folder/$($sample.voice)" "--vits-tokens=$folder/tokens.txt" "--vits-data-dir=$folder/espeak-ng-data" "--output-filename=$wav" $sample.text
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wav) -or (Get-Item $wav).Length -lt 3000) {
+              throw "Offline $($sample.lang) synthesis failed"
+            }
+          }
       - name: Verify offline speech engine
         shell: pwsh
         run: |
@@ -145,11 +187,11 @@ jobs:
           path: setup/Madi-AI-Setup.exe
           if-no-files-found: error
       - name: Publish direct-download EXE release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/local-ai-detection-memory-voice-ui')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.5-alpha
-          name: Madi AI v0.2.5 Alpha - WPF installer thread fix and improved reference UI
+          tag_name: ${{ github.ref == 'refs/heads/main' && 'v0.2.5-alpha' || 'v0.2.6-development-preview' }}
+          name: Madi AI development preview - offline Hindi Urdu voice and MT5 bridge (not final)
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
