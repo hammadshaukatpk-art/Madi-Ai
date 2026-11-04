@@ -1722,8 +1722,8 @@ public partial class MainWindow : Window
             Execute(recognized);
         }
         else StatusText.Text = "I couldn't clearly hear that. Please try again or select English, Urdu or Hindi.";
-        ListenStatus.Text = listening ? "● Listening" : "● Standby";
-        CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+        ListenStatus.Text = chatPending ? "● Responding" : listening ? "● Listening" : "● Standby";
+        CoreState.Text = chatPending ? "MADI AI • RESPONDING" : listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
