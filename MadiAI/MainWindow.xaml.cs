@@ -1206,6 +1206,8 @@ public partial class MainWindow : Window
     }
     private void UpdateStats()
     {
+        var mt5 = Mt5Bridge.Read(out _);
+        Mt5ModuleText.Text = mt5 == null ? "◌  MT5 • bridge offline" : "●  MT5 • account " + mt5.Login;
         ClockText.Text = DateTime.Now.ToString("hh:mm:ss tt");
         DateText.Text = DateTime.Now.ToString("ddd, MMM d, yyyy");
         try
