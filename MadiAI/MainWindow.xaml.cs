@@ -284,9 +284,9 @@ public partial class MainWindow : Window
                 return;
             }
             // Windows may not have Urdu/Hindi voices. Prefer an installed matching voice.
-            var lang = LanguagePicker.SelectedIndex;
-            var target = lang == 2 ? "ur" : lang == 3 ? "hi" : lang == 1 ? "en" :
-                Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
+            // Speech recognition language and output voice are independent.
+            // Latin English must remain English even if Urdu was chosen for input.
+            var target = Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
                 Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" : "en";
             var voice = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled && v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
             var chosen = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled &&
