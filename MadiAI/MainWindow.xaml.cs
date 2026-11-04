@@ -366,10 +366,8 @@ public partial class MainWindow : Window
             LocalAiModuleText.Text = "◌  Local AI • Ollama unavailable";
             return;
         }
-        var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
-            ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
-            ?? models[0];
-        LocalAiModuleText.Text = "●  Local AI • " + model;
+        var model = ChooseResponsiveModel(models);
+        LocalAiModuleText.Text = "◌  Local AI • " + model + " installed (not tested)";
     }
 
     private async Task TryStartInstalledOllamaAsync()
@@ -693,9 +691,7 @@ public partial class MainWindow : Window
                 var models = await GetInstalledModelsAsync();
                 if (models.Count > 0)
                 {
-                    var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
-                        ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
-                        ?? models[0];
+                    var model = ChooseResponsiveModel(models);
                     using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(6));
                     var plan = await LocalActionPlanner.PlanAsync(http, model, original, timeout.Token);
                     if (plan != null && TryPerformPlannedAction(plan)) return;
@@ -1121,6 +1117,22 @@ public partial class MainWindow : Window
         return env.Split(Path.PathSeparator).Select(p => Path.Combine(p.Trim('"'), "ollama.exe")).FirstOrDefault(File.Exists);
     }
 
+    private string ChooseResponsiveModel(List<string> models)
+    {
+        var chosen = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+            ?? models[0];
+        // If Windows reports critical RAM pressure, choose the smaller
+        // installed local model rather than letting a larger model stall.
+        if (int.TryParse(RamValue.Text.TrimEnd('%'), out var used) && used >= 90)
+        {
+            var fast = models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase));
+            if (fast != null) chosen = fast;
+        }
+        return chosen;
+    }
+
     private async Task AskLocalAiAsync(string question)
     {
         if (chatPending)
@@ -1154,11 +1166,8 @@ public partial class MainWindow : Window
             // Favor a responsive installed local model unless the user explicitly
             // selected a different one. A model name in /api/tags alone does not
             // mean that an answer is ready.
-            var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
-                ?? models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase))
-                ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
-                ?? models[0];
-            LocalAiModuleText.Text = "●  Local AI • " + model + " (responding)";
+            var model = ChooseResponsiveModel(models);
+            LocalAiModuleText.Text = "◌  Local AI • " + model + " generating";
             StatusText.Text = "Madi is generating a reply locally. Please wait...";
             var messages = new List<object>
             {
@@ -1221,6 +1230,7 @@ public partial class MainWindow : Window
             ConversationText.ScrollToEnd();
             var result = answer.ToString().Trim();
             if (result.Length == 0) { Respond("The local model returned an empty answer."); return; }
+            LocalAiModuleText.Text = "●  Local AI • " + model + " responding";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", result));
             if (chatHistory.Count > 100) chatHistory.RemoveRange(0, chatHistory.Count - 100);
