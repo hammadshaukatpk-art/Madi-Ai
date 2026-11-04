@@ -107,8 +107,12 @@ jobs:
       - name: Verify real offline Hindi and Urdu synthesis
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-indic-voice' -PassThru -Wait
-          if ($p.ExitCode -ne 0) { throw "Unicode Hindi/Urdu synthesis failed: $($p.ExitCode)" }
+          $log = Join-Path $env:RUNNER_TEMP 'madi-indic-errors.log'
+          $out = Join-Path $env:RUNNER_TEMP 'madi-indic-output.log'
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-indic-voice' -PassThru -Wait -RedirectStandardError $log -RedirectStandardOutput $out
+          if (Test-Path $log) { Get-Content $log | Select-Object -Last 100 }
+          if (Test-Path $out) { Get-Content $out | Select-Object -Last 100 }
+          if ($p.ExitCode -ne 0) { throw "Unicode Hindi/Urdu speech pipeline failed: $($p.ExitCode)" }
       - name: Verify offline speech engine
         shell: pwsh
         run: |
