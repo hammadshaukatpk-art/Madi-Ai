@@ -67,6 +67,8 @@ public partial class MainWindow : Window
     private readonly List<(string Role, string Content)> chatHistory = new();
     private LocalMemoryStore memory = null!;
     private string? selectedModel;
+    private List<string> cachedModels = new();
+    private DateTime modelsCachedAt = DateTime.MinValue;
     private double smoothedCpu = -1;
     private string ChatHistoryFile => Path.Combine(profile, "conversation.json");
     private string SelectedModelFile => Path.Combine(profile, "selected-model.txt");
@@ -240,19 +242,25 @@ public partial class MainWindow : Window
 
     private async Task<List<string>> GetInstalledModelsAsync()
     {
+        if ((DateTime.UtcNow - modelsCachedAt).TotalSeconds < (cachedModels.Count > 0 ? 30 : 5))
+            return cachedModels.ToList();
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
             using var response = await http.GetAsync("http://127.0.0.1:11434/api/tags", timeout.Token);
             response.EnsureSuccessStatusCode();
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
-            return json.RootElement.GetProperty("models").EnumerateArray()
+            cachedModels = json.RootElement.GetProperty("models").EnumerateArray()
                 .Select(m => m.GetProperty("name").GetString())
                 .Where(m => !string.IsNullOrWhiteSpace(m))
                 .Select(m => m!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            modelsCachedAt = DateTime.UtcNow;
+            return cachedModels.ToList();
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or JsonException)
         {
+            cachedModels.Clear();
+            modelsCachedAt = DateTime.UtcNow;
             return new List<string>();
         }
     }
