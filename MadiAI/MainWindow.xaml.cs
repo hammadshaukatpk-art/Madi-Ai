@@ -1622,6 +1622,68 @@ public partial class MainWindow : Window
             Respond("Ollama is installed but its local service or models are unavailable. Start Ollama, then use 'ollama list' to verify models. Nothing was downloaded.", false);
         };
         panel.Children.Add(local);
+        var connectMt5 = new System.Windows.Controls.Button
+        {
+            Content = "CONNECT LOCAL MT5 BRIDGE", Height = 40, Margin = new Thickness(0, 12, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 88, 124))
+        };
+        connectMt5.Click += async (_, _) => { connectMt5.IsEnabled = false; await InstallMt5BridgeAsync(); connectMt5.IsEnabled = true; };
+        panel.Children.Add(connectMt5);
+        var companionToggle = new System.Windows.Controls.CheckBox
+        {
+            Content = "Occasional proactive companion check-ins (local, opt-in)",
+            IsChecked = companionEnabled, Margin = new Thickness(0, 18, 0, 8),
+            Foreground = System.Windows.Media.Brushes.LightSkyBlue
+        };
+        companionToggle.Checked += (_, _) => { companionEnabled = true; File.WriteAllText(CompanionFile, "on"); };
+        companionToggle.Unchecked += (_, _) => { companionEnabled = false; File.WriteAllText(CompanionFile, "off"); };
+        panel.Children.Add(companionToggle);
+        var memoryButton = new System.Windows.Controls.Button
+        {
+            Content = "REVIEW SAVED LOCAL MEMORIES", Height = 40, Margin = new Thickness(0, 8, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 75, 116))
+        };
+        memoryButton.Click += (_, _) =>
+        {
+            var review = new Window
+            {
+                Title = "Madi AI • Private Memory", Width = 550, Height = 420, Owner = window,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
+                Foreground = System.Windows.Media.Brushes.White
+            };
+            var content = new DockPanel { Margin = new Thickness(16) };
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+            DockPanel.SetDock(buttons, Dock.Bottom);
+            var list = new System.Windows.Controls.ListBox
+            {
+                ItemsSource = memory.Items.ToArray(), Foreground = System.Windows.Media.Brushes.White,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+            };
+            var delete = new System.Windows.Controls.Button { Content = "DELETE SELECTED", Width = 160, Height = 36, Margin = new Thickness(0, 0, 8, 0) };
+            delete.Click += (_, _) =>
+            {
+                if (list.SelectedItem is not string selected) return;
+                if (memory.RemoveExact(selected)) list.ItemsSource = memory.Items.ToArray();
+            };
+            var clear = new System.Windows.Controls.Button { Content = "CLEAR ALL", Width = 120, Height = 36 };
+            clear.Click += (_, _) =>
+            {
+                if (System.Windows.MessageBox.Show("Delete all saved Madi AI memories?", "Confirm",
+                    System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes) return;
+                memory.Clear();
+                list.ItemsSource = memory.Items.ToArray();
+            };
+            buttons.Children.Add(delete);
+            buttons.Children.Add(clear);
+            content.Children.Add(buttons);
+            content.Children.Add(list);
+            review.Content = content;
+            review.ShowDialog();
+        };
+        panel.Children.Add(memoryButton);
         window.Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         window.ShowDialog();
     }
