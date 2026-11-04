@@ -481,6 +481,7 @@ public partial class MainWindow : Window
             {
                 userCancelledChat = true;
                 currentChatCancellation?.Cancel();
+                queuedQuestions.Clear();
                 StopSpeech();
                 Respond("Stopped. I'm ready for your next command.", false);
                 return;
