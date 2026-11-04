@@ -20,7 +20,7 @@ internal static class Mt5Bridge
 
     internal sealed record Snapshot(
         DateTime Timestamp, string Broker, string Login, string Currency,
-        string Balance, string Equity, string FreeMargin, string ChartSymbol, string ChartTimeframe, string Bid, string Ask, string[] Positions);
+        string Balance, string Equity, string FreeMargin, string ChartSymbol, string ChartTimeframe, string Bid, string Ask, string[] Positions, string[] Candles);
 
     internal static Snapshot? Read(out string diagnostic) => ReadFromPath(StatusPath, out diagnostic);
 
@@ -58,9 +58,11 @@ internal static class Mt5Bridge
             string Get(string key) => values.TryGetValue(key, out var value) ? value : "unavailable";
             var positions = data.Where(x => x.StartsWith("position=", StringComparison.OrdinalIgnoreCase))
                 .Select(x => x["position=".Length..]).Take(40).ToArray();
+            var candles = data.Where(x => x.StartsWith("candle=", StringComparison.OrdinalIgnoreCase))
+                .Select(x => x["candle=".Length..]).Take(120).ToArray();
             diagnostic = "Live read-only MT5 bridge connected.";
             return new Snapshot(timestamp, Get("broker"), Get("login"), Get("currency"),
-                Get("balance"), Get("equity"), Get("free_margin"), Get("chart_symbol"), Get("chart_timeframe"), Get("bid"), Get("ask"), positions);
+                Get("balance"), Get("equity"), Get("free_margin"), Get("chart_symbol"), Get("chart_timeframe"), Get("bid"), Get("ask"), positions, candles);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -97,6 +99,8 @@ internal static class Mt5Bridge
     {
         var snapshot = Read(out var diagnostic);
         if (snapshot == null) return diagnostic;
+        if (topic is "analysis" or "indicators" or "analyze")
+            return Mt5ChartAnalysis.Describe(snapshot.ChartSymbol, snapshot.ChartTimeframe, snapshot.Candles);
         if (topic is "price" or "quote" or "chart")
             return $"MT5 active chart: {snapshot.ChartSymbol}, {snapshot.ChartTimeframe}. Bid {snapshot.Bid}, Ask {snapshot.Ask}. Last updated {snapshot.Timestamp:HH:mm:ss}.";
         if (topic is "balance" or "equity" or "account")
