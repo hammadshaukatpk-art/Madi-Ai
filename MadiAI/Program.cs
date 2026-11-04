@@ -168,7 +168,14 @@ internal static class Program
                             voice.SetOutputToNull();
                             var timer = System.Diagnostics.Stopwatch.StartNew();
                             var recognized = TranscribeSmokeSample(processor, wav).GetAwaiter().GetResult();
+                            // The dashboard defaults to automatic language selection.
+                            // Test that exact Whisper mode, not just forced English.
+                            using var autoProcessor = factory.CreateBuilder().WithLanguage("auto").Build();
+                            var recognizedAuto = TranscribeSmokeSample(autoProcessor, wav).GetAwaiter().GetResult();
+                            if (string.IsNullOrWhiteSpace(recognizedAuto))
+                                throw new InvalidOperationException("Automatic language recognition returned no text.");
                             timer.Stop();
+                            details += Environment.NewLine + "Automatic language transcript: " + recognizedAuto;
                             details += Environment.NewLine + "Synthetic spoken command: " + recognized +
                                 "; recognition seconds: " + timer.Elapsed.TotalSeconds.ToString("F2");
                             if (string.IsNullOrWhiteSpace(recognized))
