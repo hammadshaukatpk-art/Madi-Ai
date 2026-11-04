@@ -28,6 +28,7 @@ public partial class MainWindow : Window
 {
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
+    private readonly DispatcherTimer companionTimer = new() { Interval = TimeSpan.FromMinutes(20) };
     private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
@@ -61,6 +62,8 @@ public partial class MainWindow : Window
     private bool voicePreparing;
     private bool chatPending;
     private bool installingLocalAi;
+    private bool companionEnabled;
+    private string CompanionFile => Path.Combine(profile, "companion.txt");
     private readonly List<(string Role, string Content)> chatHistory = new();
     private LocalMemoryStore memory = null!;
     private string? selectedModel;
@@ -76,6 +79,9 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        companionEnabled = File.Exists(CompanionFile) && File.ReadAllText(CompanionFile).Trim() == "on";
+        companionTimer.Tick += (_, _) => CompanionCheckIn();
+        companionTimer.Start();
         memory = new LocalMemoryStore(profile);
         LoadConversationHistory();
         try
@@ -529,6 +535,20 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text is "keep me company" or "talk to me sometimes" or "proactive on" or "enable check ins")
+        {
+            companionEnabled = true;
+            File.WriteAllText(CompanionFile, "on");
+            Respond("I'll offer an occasional check-in while you're active at your PC. Say 'stop check-ins' anytime.", false);
+            return true;
+        }
+        if (text is "stop check-ins" or "proactive off" or "disable check ins")
+        {
+            companionEnabled = false;
+            File.WriteAllText(CompanionFile, "off");
+            Respond("Proactive check-ins are now off.", false);
+            return true;
+        }
         if (text is "mt5 price" or "mt5 quote" or "mt5 chart status" or "mt5 current chart")
         {
             Respond(Mt5Bridge.Describe("price"), false);
@@ -650,6 +670,29 @@ public partial class MainWindow : Window
             return true;
         }
         return false;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LASTINPUTINFO
+    {
+        public uint cbSize;
+        public uint dwTime;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
+
+    private void CompanionCheckIn()
+    {
+        if (!unlocked || !companionEnabled || chatPending || processingAudio || speaker.State == SynthesizerState.Speaking)
+            return;
+        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        if (!GetLastInputInfo(ref info)) return;
+        var idleMs = unchecked((uint)Environment.TickCount - info.dwTime);
+        if (idleMs > 5 * 60 * 1000) return;
+        // Do not speak into the active microphone: show a check-in in text
+        // until voice listening is stopped.
+        Respond("I'm here if you'd like to chat. How has your day been going?", !listening);
     }
 
     private async Task TypeIntoAppAsync(string app, string content)
