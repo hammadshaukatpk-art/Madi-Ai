@@ -45,6 +45,67 @@ internal static class WindowsTextAutomation
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr window, int command);
 
+    // Deliberately use WM_CLOSE via CloseMainWindow rather than killing processes.
+    // Windows/app-owned unsaved-work prompts remain under the user's control.
+    internal static string CloseVisibleApp(string appName)
+    {
+        if (string.IsNullOrWhiteSpace(appName) || appName.Length > 60)
+            return "Please specify the visible application to close.";
+        var matches = FindSafeVisibleWindows(appName);
+        if (matches.Length == 0) return "No safe open application matched " + appName + ".";
+        if (matches.Length > 1) return "Multiple windows matched. Specify a more precise application or window title.";
+        var target = matches[0];
+        if (MessageBox.Show("Request " + target.ProcessName + " to close?\n\n" +
+            "Unsaved changes may cause the app to ask you for confirmation. Madi will not force quit it.",
+            "Madi AI • Confirm closing app", MessageBoxButton.YesNo,
+            MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return "Closing the application was cancelled.";
+        try
+        {
+            return target.CloseMainWindow()
+                ? "Asked " + target.ProcessName + " to close. Please respond to any unsaved-work prompts."
+                : "The application did not accept a normal close request. It was not force-terminated.";
+        }
+        catch (Exception ex) { return "Unable to request closing the app: " + ex.Message; }
+    }
+
+    internal static string ChangeVisibleWindowState(string appName, bool minimize)
+    {
+        if (string.IsNullOrWhiteSpace(appName) || appName.Length > 60)
+            return "Please specify the application.";
+        var matches = FindSafeVisibleWindows(appName);
+        if (matches.Length == 0) return "No safe open application matched " + appName + ".";
+        if (matches.Length > 1) return "Several windows matched. Use a more specific name.";
+        var target = matches[0];
+        try
+        {
+            if (minimize) ShowWindow(target.MainWindowHandle, 6); // SW_MINIMIZE
+            else ShowWindow(target.MainWindowHandle, 3); // SW_MAXIMIZE
+            return (minimize ? "Minimized " : "Maximized ") + target.ProcessName + ".";
+        }
+        catch (Exception ex) { return "Unable to change the window state: " + ex.Message; }
+    }
+
+    private static Process[] FindSafeVisibleWindows(string appName) =>
+        Process.GetProcesses().Where(p =>
+        {
+            try
+            {
+                var name = p.ProcessName;
+                var title = p.MainWindowTitle;
+                return p.MainWindowHandle != IntPtr.Zero &&
+                    !name.Equals("MadiAI", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Equals("explorer", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Equals("taskmgr", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Equals("terminal64", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Equals("terminal", StringComparison.OrdinalIgnoreCase) &&
+                    !title.Contains("MetaTrader", StringComparison.OrdinalIgnoreCase) &&
+                    (name.Contains(appName, StringComparison.OrdinalIgnoreCase) ||
+                     title.Contains(appName, StringComparison.OrdinalIgnoreCase));
+            }
+            catch { return false; }
+        }).Take(3).ToArray();
+
     public static async Task<string> TypeIntoAsync(string appName, string text)
     {
         appName = appName.Trim();
