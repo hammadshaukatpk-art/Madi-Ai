@@ -110,7 +110,9 @@
     <TextBlock Text="MADI  /  INTELLIGENCE CORE" FontSize="19" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center"/>
     <TextBlock Text="YOUR PERSONAL AI ASSISTANT" FontSize="11" Foreground="#69C9F1" HorizontalAlignment="Center" Margin="0,7,0,0"/>
    </StackPanel>
-   <Grid Grid.Row="1" MinHeight="300" ClipToBounds="True">
+   <Grid Grid.Row="1" MinHeight="260" ClipToBounds="True">
+    <Viewbox Stretch="Uniform" StretchDirection="DownOnly">
+     <Grid Width="450" Height="450">
     <Ellipse Width="430" Height="430" Opacity=".4"><Ellipse.Fill><RadialGradientBrush><GradientStop Color="#2154A9" Offset="0"/><GradientStop Color="#091C41" Offset=".55"/><GradientStop Color="#00101D" Offset="1"/></RadialGradientBrush></Ellipse.Fill><Ellipse.Effect><BlurEffect Radius="35"/></Ellipse.Effect></Ellipse>
     <Ellipse Width="410" Height="410" Stroke="#21669E" StrokeThickness="1.4" Opacity=".7"/>
     <Ellipse Width="370" Height="370" Stroke="#16CFFF" StrokeThickness="2" StrokeDashArray="4 9" Opacity=".8"><Ellipse.RenderTransform><RotateTransform x:Name="RingOne" CenterX="185" CenterY="185"/></Ellipse.RenderTransform><Ellipse.Effect><DropShadowEffect Color="#17D7FF" BlurRadius="12" ShadowDepth="0"/></Ellipse.Effect></Ellipse>
@@ -122,6 +124,8 @@
     <Border Width="220" Height="32" Background="#CC092342" BorderBrush="#2886C7" BorderThickness="1" CornerRadius="14" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,9">
      <TextBlock Text="◈  NEURAL LINK ACTIVE" Foreground="#66E2FF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
     </Border>
+     </Grid>
+    </Viewbox>
    </Grid>
    <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,6">
     <TextBlock Text="SPEAK OR TYPE A COMMAND" FontSize="11" Foreground="#91BBD4" HorizontalAlignment="Center"/>
