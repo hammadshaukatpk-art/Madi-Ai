@@ -103,6 +103,7 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException) { companionEnabled = false; }
         companionTimer.Tick += (_, _) => CompanionCheckIn();
         companionTimer.Start();
+        AutoButton.Content = companionEnabled ? "Auto: ON" : "Auto: OFF";
         try
         {
             if (File.Exists(VoiceSettingsFile))
@@ -860,6 +861,7 @@ public partial class MainWindow : Window
         if (text is "keep me company" or "talk to me sometimes" or "proactive on" or "enable check ins")
         {
             companionEnabled = true;
+            AutoButton.Content = "Auto: ON";
             File.WriteAllText(CompanionFile, "on");
             Respond("I'll offer an occasional check-in while you're active at your PC. Say 'stop check-ins' anytime.");
             return true;
@@ -867,6 +869,7 @@ public partial class MainWindow : Window
         if (text is "stop check-ins" or "proactive off" or "disable check ins")
         {
             companionEnabled = false;
+            AutoButton.Content = "Auto: OFF";
             File.WriteAllText(CompanionFile, "off");
             Respond("Proactive check-ins are now off.");
             return true;
@@ -1892,6 +1895,16 @@ public partial class MainWindow : Window
     private void Ali_Click(object sender, RoutedEventArgs e) => Execute("open aliexpress");
     private void Canva_Click(object sender, RoutedEventArgs e) => Execute("open canva");
     private void Mt5_Click(object sender, RoutedEventArgs e) => Execute("open mt5");
+    private void Auto_Click(object sender, RoutedEventArgs e)
+    {
+        if (!unlocked) return;
+        companionEnabled = !companionEnabled;
+        File.WriteAllText(CompanionFile, companionEnabled ? "on" : "off");
+        AutoButton.Content = companionEnabled ? "Auto: ON" : "Auto: OFF";
+        Respond(companionEnabled
+            ? "Occasional local check-ins are enabled while you are active."
+            : "Automatic check-ins are disabled.", false);
+    }
     private void Chat_Click(object sender, RoutedEventArgs e) { RightPanelTabs.SelectedIndex = 1; CommandBox.Focus(); }
     private void ChatGpt_Click(object sender, RoutedEventArgs e) => Execute("open chatgpt");
     private void Office_Click(object sender, RoutedEventArgs e) => Execute("open word");
