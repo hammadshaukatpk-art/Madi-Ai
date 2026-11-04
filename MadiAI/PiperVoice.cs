@@ -33,7 +33,7 @@ internal static class PiperVoice
         // A corrupted or stalled local synthesizer must never block the
         // assistant's microphone loop indefinitely.
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(25));
+        timeout.CancelAfter(TimeSpan.FromSeconds(45));
         try
         {
             using (var process = new Process
@@ -67,9 +67,9 @@ internal static class PiperVoice
             var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             output.PlaybackStopped += (_, e) => completed.TrySetResult(e.Exception == null);
             output.Init(reader);
-            using var stop = timeout.Token.Register(() => { try { output.Stop(); } catch { } });
+            using var stop = cancellationToken.Register(() => { try { output.Stop(); } catch { } });
             output.Play();
-            return await completed.Task.WaitAsync(timeout.Token);
+            return await completed.Task.WaitAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is OperationCanceledException or IOException or System.ComponentModel.Win32Exception or InvalidOperationException)
         {
