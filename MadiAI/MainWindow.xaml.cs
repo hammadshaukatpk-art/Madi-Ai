@@ -1281,6 +1281,33 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private string ChromePreferencesFile => Path.Combine(profile, "chrome-profiles.json");
+    private string? GetPreferredChromeFolder(string service)
+    {
+        try
+        {
+            if (!File.Exists(ChromePreferencesFile)) return null;
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ChromePreferencesFile));
+            return values != null && values.TryGetValue(service, out var folder) ? folder : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+    private void SavePreferredChromeFolder(string service, string folder)
+    {
+        try
+        {
+            Dictionary<string, string> values;
+            if (File.Exists(ChromePreferencesFile))
+                values = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ChromePreferencesFile))
+                    ?? new Dictionary<string, string>();
+            else values = new Dictionary<string, string>();
+            values[service] = folder;
+            Directory.CreateDirectory(profile);
+            File.WriteAllText(ChromePreferencesFile, JsonSerializer.Serialize(values));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
+    }
+
     private sealed record ChromeProfile(string Folder, string Name);
     private static List<ChromeProfile> GetChromeProfiles()
     {
