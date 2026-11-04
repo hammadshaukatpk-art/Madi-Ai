@@ -501,16 +501,29 @@ public partial class MainWindow : Window
             if (s.StartsWith(prefix)) s = s[prefix.Length..];
         return s;
     }
-    private bool TryHandleInstantCommand(string normalized)
+    // Exposed to the Windows smoke test: validate natural-language routing
+    // without actually opening programs on a CI runner.
+    internal static string? ParseInstantCommand(string raw)
     {
-        // Known, harmless desktop actions must NOT call Ollama or its six-second
-        // action planner. Only imperative sentences are eligible; questions
-        // about apps still go to normal conversation.
+        var normalized = Normalize(raw);
         var match = Regex.Match(normalized,
             @"^(?:(?:please|can you|could you|would you|will you|i want you to|i need you to)\s+)*(?:open|launch|start|run|show|kholo|khol do|खोलो|کھولو)\s+(?:(?:the|my)\s+)?(?<app>.+?)(?:\s+(?:please|for me|now))?$",
             RegexOptions.IgnoreCase);
-        if (!match.Success) return false;
+        if (!match.Success) return null;
         var app = Regex.Replace(match.Groups["app"].Value.Trim(), @"\s+", " ");
+        return app is "youtube" or "whatsapp" or "whatsapp web" or "google" or "chrome" or
+            "browser" or "google chrome" or "mt5" or "metatrader" or "metatrader 5" or
+            "meta trader" or "meta trader 5" or "calculator" or "calc" or "notepad" or
+            "explorer" or "file explorer" or "files" or "settings" or "windows settings" or
+            "downloads" or "downloads folder" or "documents" or "documents folder" or
+            "desktop" or "desktop folder" or "pictures" or "pictures folder" or
+            "canva" or "ebay" or "aliexpress" or "chatgpt" ? app : null;
+    }
+
+    private bool TryHandleInstantCommand(string normalized)
+    {
+        var app = ParseInstantCommand(normalized);
+        if (app == null) return false;
         switch (app)
         {
             case "youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", normalized); return true;
