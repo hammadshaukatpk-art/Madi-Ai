@@ -33,6 +33,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path publish/MT5 -Force | Out-Null
           Copy-Item MT5/MadiAI_Bridge.mq5 publish/MT5/MadiAI_Bridge.mq5
+      - name: Verify saved desktop routines and command safety
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-routines' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Local routines smoke test failed: $($p.ExitCode)" }
       - name: Verify local memory persistence and privacy
         shell: pwsh
         run: |
