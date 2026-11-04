@@ -1076,7 +1076,16 @@ public partial class MainWindow : Window
 
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("I am still answering your previous question."); return; }
+        if (chatPending)
+        {
+            if (queuedQuestions.Count < 3)
+            {
+                queuedQuestions.Enqueue(question);
+                StatusText.Text = "Message queued for the next reply.";
+            }
+            else Respond("Please wait for the current reply.", false);
+            return;
+        }
         chatPending = true;
         userCancelledChat = false;
         currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
