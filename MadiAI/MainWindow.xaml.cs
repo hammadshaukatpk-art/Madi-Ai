@@ -197,12 +197,19 @@ public partial class MainWindow : Window
     {
         try
         {
-            var spoken = await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage);
+            bool spoken = false;
+            try { spoken = await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage); }
+            catch (Exception ex)
+            {
+                if (!token.IsCancellationRequested)
+                    await Dispatcher.InvokeAsync(() => StatusText.Text = "Offline voice error: " + ex.Message);
+            }
             if (!spoken && !token.IsCancellationRequested)
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    try { speaker.SpeakAsync(text); } catch { }
+                    try { speaker.SpeakAsync(text); }
+                    catch (Exception ex) { StatusText.Text = "Speech output unavailable: " + ex.Message; }
                 });
             }
         }
