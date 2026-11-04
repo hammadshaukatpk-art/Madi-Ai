@@ -320,6 +320,14 @@ public partial class MainWindow : Window
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (text is "what are you doing" or "what are you up to" or "kya kar rahi ho" or
+                "tum kya kar rahi ho" or "kya kar rahe ho" or "क्या कर रही हो" or "کیا کر رہی ہو")
+            {
+                Respond(chatPending ? "I'm working on your previous question." :
+                    listening ? "I'm here and listening to you. What would you like me to do?" :
+                    "I'm ready to chat or carry out a command. You can start voice listening whenever you want.");
+                return;
+            }
             if (text is "stop speaking" or "stop talking" or "be quiet" or "chup ho jao" or "चुप हो जाओ" or "خاموش ہو جاؤ")
             {
                 speaker.SpeakAsyncCancelAll();
