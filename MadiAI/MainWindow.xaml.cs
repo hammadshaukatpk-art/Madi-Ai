@@ -37,10 +37,13 @@ public partial class MainWindow : Window
     {
         get
         {
-            var bundled = Path.Combine(AppContext.BaseDirectory, "models", "ggml-base.bin");
-            return File.Exists(bundled) && new FileInfo(bundled).Length > 20_000_000
-                ? bundled
-                : Path.Combine(profile, "models", "ggml-tiny.bin");
+            // Use the model shipped with the installer before attempting any download.
+            // An optional larger multilingual base model takes priority when present.
+            var baseModel = Path.Combine(AppContext.BaseDirectory, "models", "ggml-base.bin");
+            if (File.Exists(baseModel) && new FileInfo(baseModel).Length > 100_000_000) return baseModel;
+            var bundledTiny = Path.Combine(AppContext.BaseDirectory, "models", "ggml-tiny.bin");
+            if (File.Exists(bundledTiny) && new FileInfo(bundledTiny).Length > 20_000_000) return bundledTiny;
+            return Path.Combine(profile, "models", "ggml-tiny.bin");
         }
     }
     private WaveInEvent? microphone;
