@@ -225,6 +225,22 @@ internal static class Program
                 if (composer == null || microphone == null || panels == null ||
                     composer.ActualWidth < 200 || microphone.ActualWidth < 50 || panels.ActualWidth < 280)
                     throw new InvalidOperationException("Dashboard command composer or conversation panel is clipped.");
+                foreach (var test in new[]
+                {
+                    (Input: "Madi, could you open MetaTrader 5 now", Expected: "metatrader 5"),
+                    (Input: "Please open Chrome", Expected: "chrome"),
+                    (Input: "Can you open YouTube for me", Expected: "youtube"),
+                    (Input: "open calculator", Expected: "calculator"),
+                    (Input: "what is youtube", Expected: (string?)null),
+                    (Input: "explain how to open MT5", Expected: (string?)null)
+                })
+                {
+                    var actual = MainWindow.ParseInstantCommand(test.Input);
+                    if (actual != test.Expected)
+                        throw new InvalidOperationException(
+                            "Instant command parser failed: " + test.Input + " -> " + (actual ?? "(chat)"));
+                }
+                System.IO.File.AppendAllText(log, "Natural command routing checks passed." + Environment.NewLine);
                 System.IO.File.AppendAllText(log,
                     $"Dashboard layout: composer={composer.ActualWidth:F0}, mic={microphone.ActualWidth:F0}, panel={panels.ActualWidth:F0}" + Environment.NewLine);
                 // Publish an ACTUAL WPF-rendered dashboard image for review.
