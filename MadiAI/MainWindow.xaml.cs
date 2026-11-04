@@ -70,6 +70,9 @@ public partial class MainWindow : Window
     private LocalMemoryStore memory = null!;
     private LocalRoutines routines = null!;
     private string? selectedModel;
+    private string? preferredVoice;
+    private int speechRate = 1;
+    private string VoiceSettingsFile => Path.Combine(profile, "voice-settings.json");
     private List<string> cachedModels = new();
     private DateTime modelsCachedAt = DateTime.MinValue;
     private double smoothedCpu = -1;
@@ -89,6 +92,17 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException) { companionEnabled = false; }
         companionTimer.Tick += (_, _) => CompanionCheckIn();
         companionTimer.Start();
+        try
+        {
+            if (File.Exists(VoiceSettingsFile))
+            {
+                using var voiceSettings = JsonDocument.Parse(File.ReadAllText(VoiceSettingsFile));
+                if (voiceSettings.RootElement.TryGetProperty("voice", out var savedVoice)) preferredVoice = savedVoice.GetString();
+                if (voiceSettings.RootElement.TryGetProperty("rate", out var savedRate)) speechRate = Math.Clamp(savedRate.GetInt32(), -2, 4);
+            }
+            speaker.Rate = speechRate;
+        }
+        catch (Exception) { speechRate = 1; }
         memory = new LocalMemoryStore(profile);
         routines = new LocalRoutines(profile);
         LoadConversationHistory();
@@ -150,7 +164,12 @@ public partial class MainWindow : Window
                 Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
                 Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" : "en";
             var voice = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled && v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
-            if (voice != null) speaker.SelectVoice(voice.VoiceInfo.Name);
+            var chosen = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled &&
+                v.VoiceInfo.Name.Equals(preferredVoice, StringComparison.OrdinalIgnoreCase) &&
+                v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
+            if (chosen != null) speaker.SelectVoice(chosen.VoiceInfo.Name);
+            else if (voice != null) speaker.SelectVoice(voice.VoiceInfo.Name);
+            speaker.Rate = speechRate;
             speaker.SpeakAsync(text);
         }
         catch { /* Missing Windows voice is nonfatal; visual status still works. */ }
@@ -1546,6 +1565,40 @@ public partial class MainWindow : Window
         panel.Children.Add(new TextBlock { Text = "Windows spoken voice languages: " + (installed.Count == 0 ? "none" : string.Join(", ", installed)),
             FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 8) });
+        panel.Children.Add(new TextBlock { Text = "Preferred Windows voice (matching the language is prioritized)",
+            FontSize = 13, Margin = new Thickness(0, 8, 0, 6) });
+        var voiceChoices = speaker.GetInstalledVoices().Where(v => v.Enabled).Select(v => v.VoiceInfo.Name).ToList();
+        var voicePicker = new System.Windows.Controls.ComboBox
+        {
+            Height = 35, ItemsSource = voiceChoices,
+            SelectedItem = voiceChoices.FirstOrDefault(v => v.Equals(preferredVoice, StringComparison.OrdinalIgnoreCase))
+                ?? voiceChoices.FirstOrDefault(),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+        };
+        if (TryFindResource("DarkLanguageCombo") is Style voiceComboStyle) voicePicker.Style = voiceComboStyle;
+        panel.Children.Add(voicePicker);
+        panel.Children.Add(new TextBlock { Text = "Speech speed", FontSize = 13, Margin = new Thickness(0, 9, 0, 4) });
+        var rateSlider = new System.Windows.Controls.Slider
+        {
+            Minimum = -2, Maximum = 4, TickFrequency = 1, IsSnapToTickEnabled = true, Value = speechRate,
+            Foreground = System.Windows.Media.Brushes.Cyan
+        };
+        panel.Children.Add(rateSlider);
+        var voiceSave = new System.Windows.Controls.Button
+        {
+            Content = "SAVE VOICE PREFERENCES", Height = 37, Margin = new Thickness(0, 7, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(17, 74, 120))
+        };
+        voiceSave.Click += (_, _) =>
+        {
+            preferredVoice = voicePicker.SelectedItem as string;
+            speechRate = (int)rateSlider.Value;
+            File.WriteAllText(VoiceSettingsFile, JsonSerializer.Serialize(new { voice = preferredVoice, rate = speechRate }));
+            Respond("Voice preferences saved locally.", false);
+        };
+        panel.Children.Add(voiceSave);
         panel.Children.Add(new TextBlock { Text = "Secret code: salted hash in your local Windows profile. No code is stored in GitHub.",
             FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 15) });
         var save = new System.Windows.Controls.Button { Content = "SAVE MICROPHONE SELECTION", Height = 43,
