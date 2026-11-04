@@ -31,7 +31,7 @@ internal static class Mt5BridgeInstaller
             return "No MT5 Experts directory was found. Open your terminal and choose File > Open Data Folder.";
         var message = $"Install Madi AI's READ-ONLY bridge into {destinations.Length} local MT5 terminal folder(s)? " +
                       "This will replace any existing MadiAI_Bridge.mq5 source. It does not trade or enable automated trading.";
-        if (MessageBox.Show(message, "Madi AI • Connect MetaTrader 5", MessageBoxButton.YesNo,
+        if (System.Windows.MessageBox.Show(message, "Madi AI • Connect MetaTrader 5", MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
             return "MT5 bridge installation cancelled.";
 
