@@ -10,6 +10,7 @@ using System.Windows.Media.Effects;
 using Microsoft.Win32;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading;
 
 namespace MadiSetup;
 internal static class Program
@@ -232,7 +233,8 @@ public sealed class SetupWindow : Window
    LogInstallationFailure(ex);
    progress.IsIndeterminate=false;
    progress.Value=0;
-   status.Text="Installation failed: "+ex.Message+"  You can retry without re-entering your code.";
+   status.Text=(uninstall?"Uninstall could not finish: ":"Installation failed: ")+ex.Message+
+     (uninstall?"  Close Madi AI and retry.":"  You can retry without re-entering your code.");
    primary.Content=uninstall?"RETRY UNINSTALL":"RETRY INSTALL";
    finished=false;
    primary.IsEnabled=true;
@@ -268,6 +270,17 @@ public sealed class SetupWindow : Window
   {
    if (key == null || !(key.GetValue("UninstallString")?.ToString()?.Contains("/uninstall") ?? false))
     throw new IOException("Control Panel uninstall registration invalid.");
+  }
+  // Reproduce the user's locked-file uninstall failure: it must preserve the
+  // Control Panel entry and allow RETRY after the lock is released.
+  using (var heldFile = new FileStream(Path.Combine(target,"MadiAI.exe"),FileMode.Open,FileAccess.Read,FileShare.Read))
+  {
+   bool blocked=false;
+   try { Remove(); }
+   catch (IOException) { blocked=true; }
+   if (!blocked) throw new IOException("Uninstall incorrectly succeeded while the application binary was locked.");
+   using var registered=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
+   if (registered==null) throw new IOException("Failed uninstall removed Control Panel entry before deleting application.");
   }
   Remove();
   if (Directory.Exists(target)) throw new IOException("Uninstall did not remove application folder.");
@@ -330,23 +343,47 @@ public sealed class SetupWindow : Window
  static void MarshalRelease(object obj){try{if(System.Runtime.InteropServices.Marshal.IsComObject(obj))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(obj);}catch{}}
  void Remove()
  {
-  var desktop=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Madi AI.lnk");
-  if(File.Exists(desktop))File.Delete(desktop);
-  var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
-  if(Directory.Exists(menu))Directory.Delete(menu,true);
+  // The uninstaller runs from a temporary copy so it can remove its installed executable.
+  // Do not remove shortcuts/registry until the application directory is actually gone.
+  // Retry transient Windows file locks rather than reporting a partially completed uninstall.
+  var appExe=Path.GetFullPath(Path.Combine(target,"MadiAI.exe"));
   foreach (var proc in Process.GetProcessesByName("MadiAI"))
   {
    try
    {
-    if (string.Equals(proc.MainModule?.FileName,Path.Combine(target,"MadiAI.exe"),StringComparison.OrdinalIgnoreCase))
+    string? processFile=null;
+    try { processFile=proc.MainModule?.FileName; }
+    catch (System.ComponentModel.Win32Exception) { }
+    catch (InvalidOperationException) { }
+    if (processFile!=null && string.Equals(Path.GetFullPath(processFile),appExe,StringComparison.OrdinalIgnoreCase))
     {
-     proc.CloseMainWindow();
-     if (!proc.WaitForExit(3000)) throw new IOException("Please close Madi AI before uninstalling and try again.");
+     if (!proc.HasExited)
+     {
+      proc.CloseMainWindow();
+      if (!proc.WaitForExit(8000))
+       throw new IOException("Madi AI is still running. Save your work, close its window, and select RETRY UNINSTALL.");
+     }
     }
    }
    finally { proc.Dispose(); }
   }
-  if(Directory.Exists(target))Directory.Delete(target,true);
+  if (Directory.Exists(target))
+  {
+   Exception? last=null;
+   for (int attempt=0;attempt<8;attempt++)
+   {
+    try { Directory.Delete(target,true); last=null; break; }
+    catch (IOException ex) { last=ex; }
+    catch (UnauthorizedAccessException ex) { last=ex; }
+    if (attempt<7) Thread.Sleep(750);
+   }
+   if (Directory.Exists(target))
+    throw new IOException("Some application files are still locked by Windows or another process. Close Madi AI and any open files in its installation folder, then retry. Details: "+last?.Message,last);
+  }
+  var desktop=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Madi AI.lnk");
+  if(File.Exists(desktop))File.Delete(desktop);
+  var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
+  if(Directory.Exists(menu))Directory.Delete(menu,true);
   Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI",false);
   // The LocalAppData/MadiAI profile intentionally remains for secret-code persistence.
  }

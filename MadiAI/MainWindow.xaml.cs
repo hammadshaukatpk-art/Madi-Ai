@@ -28,7 +28,8 @@ public partial class MainWindow : Window
 {
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
+    private readonly DispatcherTimer companionTimer = new() { Interval = TimeSpan.FromMinutes(20) };
+    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private string AuthFile => Path.Combine(profile, "unlock.json");
@@ -36,10 +37,13 @@ public partial class MainWindow : Window
     {
         get
         {
-            var bundled = Path.Combine(AppContext.BaseDirectory, "models", "ggml-tiny.bin");
-            return File.Exists(bundled) && new FileInfo(bundled).Length > 20_000_000
-                ? bundled
-                : Path.Combine(profile, "models", "ggml-tiny.bin");
+            // Use the model shipped with the installer before attempting any download.
+            // An optional larger multilingual base model takes priority when present.
+            var baseModel = Path.Combine(AppContext.BaseDirectory, "models", "ggml-base.bin");
+            if (File.Exists(baseModel) && new FileInfo(baseModel).Length > 100_000_000) return baseModel;
+            var bundledTiny = Path.Combine(AppContext.BaseDirectory, "models", "ggml-tiny.bin");
+            if (File.Exists(bundledTiny) && new FileInfo(bundledTiny).Length > 20_000_000) return bundledTiny;
+            return Path.Combine(profile, "models", "ggml-tiny.bin");
         }
     }
     private WaveInEvent? microphone;
@@ -48,29 +52,77 @@ public partial class MainWindow : Window
     private bool listening;
     private bool unlocked;
     private bool processingAudio;
+    private bool pauseForSpeech;
     private WhisperFactory? voiceFactory;
     private int stopRequested;
     private DateTime captureStarted;
     private DateTime firstSpeech;
     private DateTime lastSpeech;
     private int speechFrames;
+    private double noiseFloor = 0.003;
+    private CancellationTokenSource? piperCancellation;
+    private Task piperSpeechTask = Task.CompletedTask;
+    private bool piperSpeaking;
+    private int piperGeneration;
+    private int piperPendingSegments;
     private int micDeviceNumber;
     private List<ChromeProfile>? pendingChromeProfiles;
     private string pendingChromeUrl = "https://www.google.com";
     private string pendingChromeService = "Google";
     private bool voicePreparing;
+    private bool greeted;
     private bool chatPending;
+    private readonly Queue<string> queuedQuestions = new();
+    private CancellationTokenSource? currentChatCancellation;
+    private bool userCancelledChat;
     private bool installingLocalAi;
+    private bool companionEnabled;
+    private string CompanionFile => Path.Combine(profile, "companion.txt");
     private readonly List<(string Role, string Content)> chatHistory = new();
+    private LocalMemoryStore memory = null!;
+    private LocalRoutines routines = null!;
+    private string? selectedModel;
+    private string? preferredVoice;
+    private int speechRate = 1;
+    private bool useNeuralVoice = true;
+    private string VoiceSettingsFile => Path.Combine(profile, "voice-settings.json");
+    private List<string> cachedModels = new();
+    private DateTime modelsCachedAt = DateTime.MinValue;
+    private double smoothedCpu = -1;
+    private string ChatHistoryFile => Path.Combine(profile, "conversation.json");
+    private string SelectedModelFile => Path.Combine(profile, "selected-model.txt");
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
 
     public MainWindow()
     {
         InitializeComponent();
+        CommandBox.TextChanged += (_, _) =>
+            CommandHint.Visibility = string.IsNullOrEmpty(CommandBox.Text) ? Visibility.Visible : Visibility.Collapsed;
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        try { companionEnabled = File.Exists(CompanionFile) && File.ReadAllText(CompanionFile).Trim() == "on"; }
+        catch (IOException) { companionEnabled = false; }
+        catch (UnauthorizedAccessException) { companionEnabled = false; }
+        companionTimer.Tick += (_, _) => CompanionCheckIn();
+        companionTimer.Start();
+        AutoButton.Content = companionEnabled ? "Auto: ON" : "Auto: OFF";
+        try
+        {
+            if (File.Exists(VoiceSettingsFile))
+            {
+                using var voiceSettings = JsonDocument.Parse(File.ReadAllText(VoiceSettingsFile));
+                if (voiceSettings.RootElement.TryGetProperty("voice", out var savedVoice)) preferredVoice = savedVoice.GetString();
+                if (voiceSettings.RootElement.TryGetProperty("rate", out var savedRate)) speechRate = Math.Clamp(savedRate.GetInt32(), -2, 4);
+                if (voiceSettings.RootElement.TryGetProperty("neural", out var savedNeural)) useNeuralVoice = savedNeural.GetBoolean();
+            }
+            speaker.Rate = speechRate;
+        }
+        catch (Exception) { speechRate = 1; }
+        memory = new LocalMemoryStore(profile);
+        routines = new LocalRoutines(profile);
+        LoadConversationHistory();
         try
         {
             var settingsFile = Path.Combine(profile, "settings.json");
@@ -85,6 +137,30 @@ public partial class MainWindow : Window
         GatePrompt.Text = File.Exists(AuthFile) ? "Enter your private secret code" : "Secret code not configured";
         GateHelp.Text = File.Exists(AuthFile) ? "Use the code you created in Madi AI Setup. It is stored only on this PC." : "Please run Madi AI Setup to create your secret code before using the app.";
         Loaded += (_, _) => { Animate(); SecretBox.Focus(); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (!unlocked) return;
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L)
+            { CommandBox.Focus(); CommandBox.SelectAll(); e.Handled = true; }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
+            { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Space)
+            {
+                // Push-to-interrupt: cancel speech, then resume the existing
+                // listening loop after its recording-stopped callback completes.
+                if (speaker.State == SynthesizerState.Speaking || piperSpeaking)
+                {
+                    StopSpeech();
+                    if (listening && microphone == null && !processingAudio && !pauseForSpeech)
+                        StartRecording();
+                    e.Handled = true;
+                }
+                else if (!listening)
+                { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
+            }
+            else if (e.Key == Key.Escape && (speaker.State == SynthesizerState.Speaking || piperSpeaking))
+            { StopSpeech(); e.Handled = true; }
+        };
         stats.Tick += (_, _) => UpdateStats();
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
         stats.Start();
@@ -108,24 +184,242 @@ public partial class MainWindow : Window
         var language = LanguagePicker.SelectedIndex switch { 1 => "English", 2 => "Urdu", 3 => "Hindi", _ => "Automatic" };
         Respond("Voice recognition language: " + language + ". The change applies to your next command.", false);
     }
+    private string SelectedVoiceLanguage => LanguagePicker.SelectedIndex switch
+    {
+        1 => "en",
+        2 => "ur",
+        3 => "hi",
+        _ => ""
+    };
+
+    private void StopSpeech()
+    {
+        piperCancellation?.Cancel();
+        piperSpeaking = false;
+        speaker.SpeakAsyncCancelAll();
+    }
+
+    private async Task RunPiperSegmentAsync(string text, CancellationToken token, int generation)
+    {
+        try
+        {
+            bool spoken = false;
+            try { spoken = await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage); }
+            catch (Exception ex)
+            {
+                if (!token.IsCancellationRequested)
+                    await Dispatcher.InvokeAsync(() => StatusText.Text = "Offline voice error: " + ex.Message);
+            }
+            if (!spoken && !token.IsCancellationRequested)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    try { speaker.SpeakAsync(text); }
+                    catch (Exception ex) { StatusText.Text = "Speech output unavailable: " + ex.Message; }
+                });
+            }
+        }
+        finally
+        {
+            if (generation == piperGeneration && Interlocked.Decrement(ref piperPendingSegments) == 0)
+                piperSpeaking = false;
+        }
+    }
+
+    private async Task RunPiperRemainderAsync(Task previous, string text, CancellationToken token, int generation)
+    {
+        try
+        {
+            try { await previous; }
+            catch (OperationCanceledException) { return; }
+            catch (Exception) { /* The next sentence may still be spoken by Windows TTS. */ }
+            if (!token.IsCancellationRequested)
+            {
+                var spoken = useNeuralVoice && PiperVoice.IsAvailableFor(text, SelectedVoiceLanguage) &&
+                    await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage);
+                if (!spoken && !token.IsCancellationRequested)
+                    await Dispatcher.InvokeAsync(() => { try { speaker.SpeakAsync(text); } catch { } });
+            }
+        }
+        finally
+        {
+            if (generation == piperGeneration && Interlocked.Decrement(ref piperPendingSegments) == 0)
+                piperSpeaking = false;
+        }
+    }
+
+    private void SpeakRemainder(string text)
+    {
+        // Keep sentences sequential even when the remainder must use the
+        // Windows voice rather than Piper (e.g., a language switch).
+        if (piperCancellation is { IsCancellationRequested: false } cancellation && piperSpeaking)
+        {
+            Interlocked.Increment(ref piperPendingSegments);
+            piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
+            return;
+        }
+        // Preserve neural voice identity across streamed sentences.
+        // Windows TTS queues a continuation if it is already speaking.
+        if (speaker.State == SynthesizerState.Speaking)
+        {
+            try { speaker.SpeakAsync(text); } catch (InvalidOperationException) { }
+            return;
+        }
+        Speak(text);
+    }
+
     private void Speak(string text)
     {
         try
         {
-            speaker.SpeakAsyncCancelAll();
+            if (listening && microphone != null && !processingAudio)
+            {
+                pauseForSpeech = true;
+                try { microphone.StopRecording(); } catch { pauseForSpeech = false; }
+            }
+            StopSpeech();
+            if (useNeuralVoice && PiperVoice.IsAvailableFor(text, SelectedVoiceLanguage))
+            {
+                var cancellation = new CancellationTokenSource();
+                piperCancellation = cancellation;
+                var generation = ++piperGeneration;
+                piperPendingSegments = 1;
+                piperSpeaking = true;
+                piperSpeechTask = RunPiperSegmentAsync(text, cancellation.Token, generation);
+                return;
+            }
             // Windows may not have Urdu/Hindi voices. Prefer an installed matching voice.
-            var lang = LanguagePicker.SelectedIndex;
-            var target = lang == 2 ? "ur" : lang == 3 ? "hi" : "en";
+            // Speech recognition language and output voice are independent.
+            // Latin English must remain English even if Urdu was chosen for input.
+            var target = Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
+                Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" : "en";
             var voice = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled && v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
-            if (voice != null) speaker.SelectVoice(voice.VoiceInfo.Name);
+            var chosen = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled &&
+                v.VoiceInfo.Name.Equals(preferredVoice, StringComparison.OrdinalIgnoreCase) &&
+                v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
+            if (chosen != null) speaker.SelectVoice(chosen.VoiceInfo.Name);
+            else if (voice != null) speaker.SelectVoice(voice.VoiceInfo.Name);
+            speaker.Rate = speechRate;
             speaker.SpeakAsync(text);
         }
-        catch { /* Missing Windows voice is nonfatal; visual status still works. */ }
+        catch (Exception ex)
+        {
+            // A voice failure must be visible rather than silently losing the answer.
+            StatusText.Text = "Speech output failed: " + ex.Message;
+            AppendConversation("System", "Voice playback unavailable. The text reply is shown above.");
+        }
     }
     private void Respond(string message, bool speak = true)
     {
         StatusText.Text = message;
+        AppendConversation("Madi", message);
         if (speak) Speak(message);
+    }
+
+    private void AppendConversation(string who, string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
+        ConversationText.AppendText($"{who}: {message.Trim()}\n\n");
+        ConversationText.ScrollToEnd();
+    }
+
+    private void LoadConversationHistory()
+    {
+        try
+        {
+            if (File.Exists(SelectedModelFile))
+                selectedModel = File.ReadAllText(SelectedModelFile).Trim();
+            if (!File.Exists(ChatHistoryFile)) return;
+            using var data = JsonDocument.Parse(File.ReadAllText(ChatHistoryFile));
+            foreach (var item in data.RootElement.EnumerateArray().TakeLast(100))
+            {
+                var role = item.GetProperty("role").GetString();
+                var content = item.GetProperty("content").GetString();
+                if ((role == "user" || role == "assistant") && !string.IsNullOrWhiteSpace(content))
+                    chatHistory.Add((role, content));
+            }
+            foreach (var entry in chatHistory.TakeLast(12))
+                AppendConversation(entry.Role == "user" ? "You" : "Madi", entry.Content);
+        }
+        catch (Exception) { chatHistory.Clear(); }
+    }
+
+    private void SaveConversationHistory()
+    {
+        try
+        {
+            var entries = chatHistory.TakeLast(100).Select(e => new { role = e.Role, content = e.Content });
+            var temp = ChatHistoryFile + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(entries));
+            File.Move(temp, ChatHistoryFile, true);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private async Task RefreshLocalAiStatusAsync()
+    {
+        var models = await GetInstalledModelsAsync();
+        if (models.Count == 0)
+        {
+            await TryStartInstalledOllamaAsync();
+            models = await GetInstalledModelsAsync();
+        }
+        if (!unlocked) return;
+        if (models.Count == 0)
+        {
+            LocalAiModuleText.Text = "◌  Local AI • Ollama unavailable";
+            return;
+        }
+        var model = ChooseResponsiveModel(models);
+        LocalAiModuleText.Text = "◌  Local AI • " + model + " installed (not tested)";
+    }
+
+    private async Task TryStartInstalledOllamaAsync()
+    {
+        try
+        {
+            var installed = FindOllama();
+            // A running desktop Ollama process does not guarantee its API server is up.
+            if (installed == null) return;
+            Process.Start(new ProcessStartInfo(installed, "serve")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                await Task.Delay(450);
+                if ((await GetInstalledModelsAsync(forceRefresh: true)).Count > 0) break;
+            }
+        }
+        catch (Exception) { /* Ollama is optional; Settings reports unavailability. */ }
+    }
+
+    private async Task<List<string>> GetInstalledModelsAsync(bool forceRefresh = false)
+    {
+        if (!forceRefresh && (DateTime.UtcNow - modelsCachedAt).TotalSeconds < (cachedModels.Count > 0 ? 30 : 5))
+            return cachedModels.ToList();
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            using var response = await http.GetAsync("http://127.0.0.1:11434/api/tags", timeout.Token);
+            response.EnsureSuccessStatusCode();
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
+            cachedModels = json.RootElement.GetProperty("models").EnumerateArray()
+                .Select(m => m.GetProperty("name").GetString())
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Select(m => m!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            modelsCachedAt = DateTime.UtcNow;
+            return cachedModels.ToList();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or JsonException)
+        {
+            cachedModels.Clear();
+            modelsCachedAt = DateTime.UtcNow;
+            return new List<string>();
+        }
     }
 
     private void Unlock()
@@ -149,24 +443,44 @@ public partial class MainWindow : Window
             SecretBox.Clear();
             GateOverlay.Visibility = Visibility.Collapsed;
             CoreState.Text = "MADI AI • ONLINE";
-            Respond("Madi AI unlocked. Voice control is starting.", false);
+            // The greeting must be audible immediately after unlocking, not
+            // after Whisper loads or Ollama becomes available.
+            GreetOnce();
+            _ = RefreshLocalAiStatusAsync();
             Dispatcher.BeginInvoke(new Action(() => Voice_Click(this, new RoutedEventArgs())));
         }
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
     }
+    private void GreetOnce()
+    {
+        if (greeted) return;
+        greeted = true;
+        Respond("Hello! I'm Madi AI. Would you like to chat or do something on your computer?");
+    }
+
     private void Unlock_Click(object sender, RoutedEventArgs e) => Unlock();
     private void SecretBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Unlock(); }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void CommandBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Execute(CommandBox.Text); }
+    private void CommandBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        Execute(CommandBox.Text);
+    }
     private void Send_Click(object sender, RoutedEventArgs e) => Execute(CommandBox.Text);
 
     private static void Open(string target) => Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
     private static string Normalize(string raw)
     {
         var s = raw.Trim().ToLowerInvariant();
+        // Natural wake phrases frequently include punctuation: "Madi, open Chrome".
+        // Strip them before checking the command, without requiring a fixed phrase.
+        s = Regex.Replace(s,
+            @"^(?:(?:hey|hi|hello)\s+)?(?:madi ai|madi|maadi|ماڈی|माडी)[\s,.:!?،۔]+", "");
+        s = s.Trim().TrimEnd('.', '!', '?', '،', '۔').Trim();
         // Speech models often split brand names differently in Hindi, Urdu and English.
         // Normalize common transcriptions before matching explicit application commands.
         foreach (var variant in new (string From, string To)[]
@@ -189,14 +503,137 @@ public partial class MainWindow : Window
             if (s.StartsWith(prefix)) s = s[prefix.Length..];
         return s;
     }
+    // Exposed to the Windows smoke test: validate natural-language routing
+    // without actually opening programs on a CI runner.
+    internal static string? ParseInstantCommand(string raw)
+    {
+        var normalized = Normalize(raw);
+        var match = Regex.Match(normalized,
+            @"^(?:(?:please|can you|could you|would you|will you|i want you to|i need you to)\s+)*(?:open|launch|start|run|show|kholo|khol do|खोलो|کھولو)\s+(?:(?:the|my)\s+)?(?<app>.+?)(?:\s+(?:please|for me|now))?$",
+            RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+        var app = Regex.Replace(match.Groups["app"].Value.Trim(), @"\s+", " ");
+        return app is "youtube" or "whatsapp" or "whatsapp web" or "google" or "chrome" or
+            "browser" or "google chrome" or "mt5" or "metatrader" or "metatrader 5" or
+            "meta trader" or "meta trader 5" or "calculator" or "calc" or "notepad" or
+            "explorer" or "file explorer" or "files" or "settings" or "windows settings" or
+            "downloads" or "downloads folder" or "documents" or "documents folder" or
+            "desktop" or "desktop folder" or "pictures" or "pictures folder" or
+            "canva" or "ebay" or "aliexpress" or "chatgpt" or
+            "edge" or "microsoft edge" or "gmail" or "telegram" ? app : null;
+    }
+
+    private bool TryHandleInstantCommand(string normalized)
+    {
+        var app = ParseInstantCommand(normalized);
+        if (app == null) return false;
+        switch (app)
+        {
+            case "youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", normalized); return true;
+            case "whatsapp": case "whatsapp web":
+                OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", normalized); return true;
+            case "google": case "chrome": case "browser": case "google chrome":
+                OpenGoogleWithProfile(normalized); return true;
+            case "mt5": case "metatrader": case "metatrader 5": case "meta trader": case "meta trader 5":
+                OpenExistingMt5(); return true;
+            case "calculator": case "calc": Open("calc.exe"); Respond("Opening Calculator."); return true;
+            case "notepad": Open("notepad.exe"); Respond("Opening Notepad."); return true;
+            case "explorer": case "file explorer": case "files":
+                Open("explorer.exe"); Respond("Opening File Explorer."); return true;
+            case "settings": case "windows settings":
+                Open("ms-settings:"); Respond("Opening Windows Settings."); return true;
+            case "downloads": case "downloads folder":
+                Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
+                Respond("Opening Downloads."); return true;
+            case "documents": case "documents folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                Respond("Opening Documents."); return true;
+            case "desktop": case "desktop folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+                Respond("Opening Desktop."); return true;
+            case "pictures": case "pictures folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
+                Respond("Opening Pictures."); return true;
+            case "canva": OpenWebWithProfile("Canva", "https://www.canva.com", normalized); return true;
+            case "ebay": OpenWebWithProfile("eBay", "https://www.ebay.com", normalized); return true;
+            case "aliexpress": OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", normalized); return true;
+            case "chatgpt": Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return true;
+            case "edge": case "microsoft edge":
+                Open("microsoft-edge:https://www.google.com");
+                Respond("Opening Microsoft Edge."); return true;
+            case "gmail":
+                OpenWebWithProfile("Gmail", "https://mail.google.com", normalized); return true;
+            case "telegram":
+                if (TryLaunchShortcut("Telegram Desktop", out _) || TryLaunchShortcut("Telegram", out _))
+                    Respond("Opening Telegram Desktop.");
+                else { Open("https://web.telegram.org"); Respond("Opening Telegram Web."); }
+                return true;
+            default: return false;
+        }
+    }
+
     private void Execute(string raw)
     {
         if (!unlocked || string.IsNullOrWhiteSpace(raw)) return;
         var text = Normalize(raw);
+        AppendConversation("You", raw);
+        RightPanelTabs.SelectedIndex = 1;
         CommandBox.Text = "";
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (TryHandleInstantCommand(text)) return;
+            if (text is "stop" or "cancel response" or "stop answering" or "stop madi")
+            {
+                userCancelledChat = true;
+                currentChatCancellation?.Cancel();
+                queuedQuestions.Clear();
+                StopSpeech();
+                Respond("Stopped. I'm ready for your next command.", false);
+                return;
+            }
+            if (text is "what are you doing" or "what are you up to" or "kya kar rahi ho" or
+                "tum kya kar rahi ho" or "kya kar rahe ho" or "क्या कर रही हो" or "کیا کر رہی ہو")
+            {
+                Respond(chatPending ? "I'm working on your previous question." :
+                    listening ? "I'm here and listening to you. What would you like me to do?" :
+                    "I'm ready to chat or carry out a command. You can start voice listening whenever you want.");
+                return;
+            }
+            if (text is "stop speaking" or "stop talking" or "be quiet" or "chup ho jao" or "चुप हो जाओ" or "خاموش ہو جاؤ")
+            {
+                StopSpeech();
+                Respond("Okay, I'm here when you need me.", false);
+                return;
+            }
+            if (text is "clear chat" or "clear conversation" or "delete chat history" or "delete conversation history")
+            {
+                var confirmed = System.Windows.MessageBox.Show(
+                    "Permanently clear Madi AI's locally saved conversation history on this PC?\n\nSaved memories and routines are separate and will not be deleted.",
+                    "Madi AI • Clear conversation", System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+                if (confirmed == System.Windows.MessageBoxResult.Yes)
+                {
+                    userCancelledChat = true;
+                    currentChatCancellation?.Cancel();
+                    StopSpeech();
+                    chatHistory.Clear();
+                    SaveConversationHistory();
+                    ConversationText.Clear();
+                    StatusText.Text = "Conversation history cleared from this PC.";
+                }
+                else Respond("Conversation deletion cancelled.", false);
+                return;
+            }
+            if (TryHandleMemoryCommand(text, raw)) return;
+            if (TryHandleRoutineCommand(text, raw)) return;
+            if (TryHandleExtendedWindowsCommand(text, raw)) return;
+            // Prevent questions such as "What is MT5?" or "Explain YouTube"
+            // from accidentally launching programs merely by naming them.
+            bool launchIntent = Regex.IsMatch(text,
+                @"^(?:(?:please|can you|could you|would you|will you|i want you to|i need you to)\s+)*(?:open|launch|start|run|show|bring up|go to|kholo|khol do|खोलो|کھولو)\b") ||
+                text.Contains(" open karo") || text.EndsWith(" kholo") || text.EndsWith(" खोलो") ||
+                text.EndsWith(" کھولو") || text.EndsWith(" khol do");
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
@@ -249,8 +686,8 @@ public partial class MainWindow : Window
             {
                 ShowAppPicker(); return;
             }
-            if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
-            if (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप"))
+            if (launchIntent && (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब"))) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
+            if (launchIntent && (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप")))
             {
                 if (text.Contains("desktop") || text.Contains("app only") || text.Contains("ڈیسک ٹاپ") || text.Contains("डेस्कटॉप"))
                 {
@@ -260,27 +697,27 @@ public partial class MainWindow : Window
                 else OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", text);
                 return;
             }
-            if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
-            if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
-            if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
-            if (text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
-            if (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र"))
+            if (launchIntent && (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस"))) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
+            if (launchIntent && (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे"))) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
+            if (launchIntent && (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा"))) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
+            if (launchIntent && (text.Contains("chatgpt"))) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
+            if (launchIntent && (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र")))
             { OpenGoogleWithProfile(text); return; }
-            if (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर")) { Open("calc.exe"); Respond("Opening Calculator."); return; }
-            if (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड")) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
-            if (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग")) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
-            if (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर")) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
-            if (text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
-            if (text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
-            if (text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
-            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर"))
+            if (launchIntent && (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर"))) { Open("calc.exe"); Respond("Opening Calculator."); return; }
+            if (launchIntent && (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड"))) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
+            if (launchIntent && (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग"))) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
+            if (launchIntent && (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर"))) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
+            if (launchIntent && (text.Contains("paint"))) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
+            if (launchIntent && (text.Contains("word"))) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
+            if (launchIntent && (text.Contains("excel"))) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
+            if (launchIntent && (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर")))
             {
-                if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
-                    Respond("Opening MetaTrader 5.");
-                else Respond("MetaTrader 5 wasn't found in the Start Menu. You can select its terminal64.exe using Open App.");
+                OpenExistingMt5();
                 return;
             }
-            if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
+            if (Regex.IsMatch(text, @"^(?:take|capture|save|make|create|show) (?:a |the |my )?screenshot$") ||
+                text is "screenshot" or "اسکرین شاٹ لو" or "स्क्रीनशॉट लो")
+            { TakeScreenshot(); return; }
             if (text.StartsWith("search ") || text.StartsWith("find ") || text.StartsWith("تلاش ") || text.StartsWith("खोजो "))
             {
                 var query = text[(text.IndexOf(' ') + 1)..].Trim();
@@ -293,10 +730,14 @@ public partial class MainWindow : Window
                 var result = new DataTable().Compute(expression, null);
                 Respond("The result is " + result); return;
             }
-            if (text.Contains("time") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
-            if (text.Contains("date") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
+            if (Regex.IsMatch(text, @"^(?:time|clock|what(?:'s| is) the (?:current )?time|tell me the time|current time|time now|what time is it|what time is it now|kitna time hua|waqt kya hua|وقت کیا ہوا|अभी कितने बजे हैं)$"))
+            { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
+            if (Regex.IsMatch(text, @"^(?:date|today(?:'s)? date|what(?:'s| is) (?:today(?:'s)?|the current) date|what date is it|aaj ki tareekh|آج کی تاریخ|आज की तारीख)$"))
+            { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
             if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
-            if (text is "hi" or "hello" or "hey" or "سلام" or "नमस्ते") { Respond("Hello, friend. I'm listening."); return; }
+            if (text is "hi" or "hello" or "hey" or "سلام" or "السلام علیکم" or "नमस्ते" ||
+                Regex.IsMatch(text, @"^(?:hello|hi|hey|salam|assalam|السلام|سلام|नमस्ते)[\s,!?.،۔]+(?:madi|maadi|माडी|ماڈی|there|assistant)?[\s,!?.،۔]*$"))
+            { Respond("Hello! Would you like to chat, or would you like me to do something on your computer?"); return; }
             if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
@@ -305,10 +746,460 @@ public partial class MainWindow : Window
                 else Respond("Cancelled.");
                 return;
             }
-            _ = AskLocalAiAsync(raw);
+            _ = RouteRequestWithErrorReportingAsync(raw, text);
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+
+    // Never leave a typed or spoken request silently unanswered if asynchronous
+    // routing fails after Execute has returned to the UI event loop.
+    private async Task RouteRequestWithErrorReportingAsync(string original, string normalized)
+    {
+        try { await RouteUnknownAsync(original, normalized); }
+        catch (OperationCanceledException)
+        {
+            if (!userCancelledChat) Respond("That request timed out. I'm ready for another instruction.");
+        }
+        catch (Exception ex)
+        {
+            CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+            Respond("I couldn't finish your request: " + ex.Message);
+        }
+    }
+
+    private async Task RouteUnknownAsync(string original, string normalized)
+    {
+        // Ordinary conversation goes directly to streaming chat. Only an
+        // apparent command is classified, so chit-chat stays responsive.
+        var looksLikeCommand = Regex.IsMatch(normalized,
+            @"\b(?:open|launch|start|run|show|bring|switch|focus|search|find|kholo|khol|खोलो|کھولو)\b") ||
+            normalized.Contains(" kholo") || normalized.Contains(" खोलो") || normalized.Contains(" کھولو") ||
+            normalized.EndsWith(" karo") || normalized.EndsWith(" kar do") ||
+            normalized.EndsWith(" करो") || normalized.EndsWith(" کر دو") ||
+            normalized.EndsWith(" dikhao") || normalized.EndsWith(" دکھاؤ");
+        if (looksLikeCommand && !chatPending)
+        {
+            try
+            {
+                var models = await GetInstalledModelsAsync();
+                if (models.Count > 0)
+                {
+                    var model = ChooseResponsiveModel(models);
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    StatusText.Text = "Checking a safe local action...";
+                    var plan = await LocalActionPlanner.PlanAsync(http, model, original, timeout.Token);
+                    if (plan != null && TryPerformPlannedAction(plan)) return;
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or JsonException)
+            {
+                // Local command planner is optional; regular chat remains available.
+            }
+        }
+        await AskLocalAiAsync(original);
+    }
+
+    private bool TryPerformPlannedAction(LocalActionPlanner.ActionPlan plan)
+    {
+        switch (plan.Action)
+        {
+            case "open_google": OpenGoogleWithProfile("open google"); return true;
+            case "open_youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", "open youtube"); return true;
+            case "open_downloads":
+                Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
+                Respond("Opening Downloads."); return true;
+            case "open_documents": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)); Respond("Opening Documents."); return true;
+            case "open_desktop": Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)); Respond("Opening Desktop."); return true;
+            case "open_pictures": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)); Respond("Opening Pictures."); return true;
+            case "open_calculator": Open("calc.exe"); Respond("Opening Calculator."); return true;
+            case "open_notepad": Open("notepad.exe"); Respond("Opening Notepad."); return true;
+            case "open_settings": Open("ms-settings:"); Respond("Opening Windows Settings."); return true;
+            case "open_explorer": Open("explorer.exe"); Respond("Opening File Explorer."); return true;
+            case "open_mt5":
+                OpenExistingMt5();
+                return true;
+            case "mt5_status": return TryHandleExtendedWindowsCommand("mt5 status", "mt5 status");
+            case "search_web" when !string.IsNullOrWhiteSpace(plan.Argument):
+                Open("https://www.google.com/search?q=" + Uri.EscapeDataString(plan.Argument));
+                Respond("Searching the web for " + plan.Argument); return true;
+            case "search_youtube" when !string.IsNullOrWhiteSpace(plan.Argument):
+                Open("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(plan.Argument));
+                Respond("Searching YouTube for " + plan.Argument); return true;
+            case "open_app" when !string.IsNullOrWhiteSpace(plan.Argument):
+                LaunchInstalledApp(plan.Argument); return true;
+            case "focus_app" when !string.IsNullOrWhiteSpace(plan.Argument):
+                return TryHandleExtendedWindowsCommand("focus " + plan.Argument, "focus " + plan.Argument);
+            default: return false;
+        }
+    }
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    private bool TryHandleRoutineCommand(string normalized, string original)
+    {
+        if (normalized is "list routines" or "show routines" or "my routines")
+        {
+            var names = routines.Names.ToArray();
+            Respond(names.Length == 0 ? "No routines saved yet. Try: save routine morning: open google; open notepad" :
+                "Saved routines: " + string.Join(", ", names), false);
+            return true;
+        }
+        var save = Regex.Match(original.Trim(), @"(?is)^save routine ([a-z0-9 _-]{2,30}):\s*(.+)$");
+        if (save.Success)
+        {
+            Respond(routines.Save(save.Groups[1].Value, save.Groups[2].Value), false);
+            return true;
+        }
+        var run = Regex.Match(original.Trim(), @"(?i)^run routine ([a-z0-9 _-]{2,30})$");
+        if (run.Success)
+        {
+            var name = run.Groups[1].Value;
+            var commands = routines.Get(name);
+            if (commands == null) { Respond("No saved routine named " + name, false); return true; }
+            var answer = System.Windows.MessageBox.Show(
+                "Run routine '" + name + "'?\n\n" + string.Join("\n", commands) +
+                "\n\nEach step will open an app or perform a safe local action.",
+                "Madi AI • Confirm routine", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+            if (answer == System.Windows.MessageBoxResult.Yes)
+            {
+                Respond("Running routine " + name + "…", false);
+                foreach (var command in commands) Execute(command);
+            }
+            else Respond("Routine cancelled.", false);
+            return true;
+        }
+        var delete = Regex.Match(original.Trim(), @"(?i)^delete routine ([a-z0-9 _-]{2,30})$");
+        if (delete.Success)
+        {
+            var name = delete.Groups[1].Value;
+            Respond(routines.Delete(name) ? "Deleted routine " + name : "No matching routine found.", false);
+            return true;
+        }
+        return false;
+    }
+
+    private bool TryHandleExtendedWindowsCommand(string text, string raw)
+    {
+        var closeApp = Regex.Match(text, @"^(?:close app|close application|close window|close)\s+(.+)$");
+        if (closeApp.Success)
+        {
+            Respond(WindowsTextAutomation.CloseVisibleApp(closeApp.Groups[1].Value));
+            return true;
+        }
+        var windowState = Regex.Match(text, @"^(minimize|maximize)\s+(?:app\s+|window\s+)?(.+)$");
+        if (windowState.Success)
+        {
+            Respond(WindowsTextAutomation.ChangeVisibleWindowState(
+                windowState.Groups[2].Value, windowState.Groups[1].Value == "minimize"));
+            return true;
+        }
+        if (text is "analyze mt5" or "analyze mt5 chart" or "mt5 analysis" or
+            "mt5 indicators" or "read mt5 chart" or "chart analysis")
+        {
+            Respond(Mt5Bridge.Describe("analysis"));
+            return true;
+        }
+        if (text is "keep me company" or "talk to me sometimes" or "proactive on" or "enable check ins")
+        {
+            companionEnabled = true;
+            AutoButton.Content = "Auto: ON";
+            File.WriteAllText(CompanionFile, "on");
+            Respond("I'll offer an occasional check-in while you're active at your PC. Say 'stop check-ins' anytime.");
+            return true;
+        }
+        if (text is "stop check-ins" or "proactive off" or "disable check ins")
+        {
+            companionEnabled = false;
+            AutoButton.Content = "Auto: OFF";
+            File.WriteAllText(CompanionFile, "off");
+            Respond("Proactive check-ins are now off.");
+            return true;
+        }
+        if (text is "mt5 price" or "mt5 quote" or "mt5 chart status" or "mt5 current chart")
+        {
+            Respond(Mt5Bridge.Describe("price"));
+            return true;
+        }
+        var typeMatch = Regex.Match(raw.Trim(),
+            @"(?is)^type (.{1,1000}?) into ([a-z0-9 ._-]{2,60})$");
+        if (typeMatch.Success)
+        {
+            _ = TypeIntoAppAsync(typeMatch.Groups[2].Value, typeMatch.Groups[1].Value);
+            return true;
+        }
+        var chartRequest = Regex.Match(text,
+            @"^(?:mt5 chart |show )(?'symbol'[a-z0-9._-]{2,20})(?: (?'period'm1|m5|m15|m30|h1|h4|d1|w1|mn1))?(?: on mt5)?$");
+        if (chartRequest.Success)
+        {
+            var symbol = chartRequest.Groups["symbol"].Value;
+            var period = chartRequest.Groups["period"].Success ? chartRequest.Groups["period"].Value : "H1";
+            Respond(Mt5Bridge.RequestChart(symbol, period));
+            return true;
+        }
+        if (text is "connect mt5" or "connect metatrader" or "install mt5 bridge" or "setup mt5 bridge")
+        {
+            _ = InstallMt5BridgeAsync();
+            return true;
+        }
+        if (text is "mt5 balance" or "metatrader balance" or "mt5 equity" or "mt5 account" or
+            "mt5 positions" or "mt5 trades" or "mt5 orders" or "show mt5 positions" or
+            "check mt5 balance" or "check mt5 positions")
+        {
+            var topic = text.Contains("position") || text.Contains("trades") || text.Contains("orders")
+                ? "positions" : text.Contains("balance") || text.Contains("equity") || text.Contains("account")
+                    ? "account" : "status";
+            Respond(Mt5Bridge.Describe(topic));
+            return true;
+        }
+        if (text.StartsWith("find file ") || text.StartsWith("locate file ") || text.StartsWith("search my files "))
+        {
+            var name = text.StartsWith("search my files ") ? text[16..] : text.StartsWith("locate file ") ? text[12..] : text[10..];
+            if (name.Length < 2 || name.Length > 100) { Respond("Please specify a file name to search for."); return true; }
+            _ = FindLocalFilesAsync(name);
+            return true;
+        }
+        if (text.StartsWith("copy ") && text.EndsWith(" to clipboard"))
+        {
+            var value = raw.Trim();
+            var start = value.IndexOf("copy ", StringComparison.OrdinalIgnoreCase);
+            var end = value.LastIndexOf(" to clipboard", StringComparison.OrdinalIgnoreCase);
+            if (start >= 0 && end > start + 5)
+            {
+                System.Windows.Clipboard.SetText(value.Substring(start + 5, end - start - 5));
+                Respond("Copied the text to your clipboard.");
+                return true;
+            }
+        }
+        if (text is "read clipboard" or "what is in my clipboard" or "show clipboard")
+        {
+            var value = System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() : "";
+            Respond(value.Length == 0 ? "There is no text in the clipboard." :
+                "Clipboard text: " + (value.Length > 600 ? value[..600] + "…" : value));
+            return true;
+        }
+        if (text is "running apps" or "show running apps" or "what apps are open" or "list open windows")
+        {
+            var apps = Process.GetProcesses().Where(p =>
+            {
+                try { return p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(p.MainWindowTitle); }
+                catch { return false; }
+            }).Select(p => p.ProcessName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).Take(25).ToArray();
+            Respond(apps.Length == 0 ? "I couldn't find any visible app windows." :
+                "Visible running apps: " + string.Join(", ", apps));
+            return true;
+        }
+        if (text.StartsWith("switch to ") || text.StartsWith("focus ") || text.StartsWith("bring ") && text.EndsWith(" to front"))
+        {
+            var target = text.StartsWith("switch to ") ? text[10..] :
+                text.StartsWith("focus ") ? text[6..] : text[6..^9];
+            target = target.Trim();
+            if (target.Length < 2 || target.Length > 60) { Respond("Tell me which running app to focus."); return true; }
+            Process? match = null;
+            foreach (var process in Process.GetProcesses())
+            {
+                try
+                {
+                    if (process.MainWindowHandle != IntPtr.Zero &&
+                        (process.ProcessName.Contains(target, StringComparison.OrdinalIgnoreCase) ||
+                         process.MainWindowTitle.Contains(target, StringComparison.OrdinalIgnoreCase)))
+                    { match = process; break; }
+                }
+                catch { }
+            }
+            if (match == null) { Respond("I couldn't find an open window matching " + target); return true; }
+            ShowWindow(match.MainWindowHandle, 9);
+            var focused = SetForegroundWindow(match.MainWindowHandle);
+            Respond(focused ? "Switched to " + match.ProcessName : "Found " + match.ProcessName + ", but Windows blocked focus switching.");
+            return true;
+        }
+        if (text is "mt5 status" or "metatrader status" or "is mt5 running" or "check mt5")
+        {
+            var terminals = Process.GetProcesses().Where(p =>
+                p.ProcessName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
+                p.ProcessName.Equals("terminal", StringComparison.OrdinalIgnoreCase)).ToArray();
+            var live = Mt5Bridge.Read(out var bridgeDiagnostic);
+            Respond(live != null ? Mt5Bridge.Describe("status") :
+                terminals.Length == 0 ? "MetaTrader 5 is not currently running. " + bridgeDiagnostic :
+                $"Detected {terminals.Length} MetaTrader terminal process(es). " + bridgeDiagnostic);
+            return true;
+        }
+        if (text is "system information" or "system status" or "pc status" or "computer status")
+        {
+            UpdateStats();
+            Respond($"Windows system status: CPU {CpuValue.Text}, RAM {RamValue.Text}, system disk used {DiskValue.Text}.");
+            return true;
+        }
+        if (text is "open desktop" or "desktop folder")
+        {
+            Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+            Respond("Opened your Desktop folder.");
+            return true;
+        }
+        return false;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LASTINPUTINFO
+    {
+        public uint cbSize;
+        public uint dwTime;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LASTINPUTINFO info);
+
+    private void CompanionCheckIn()
+    {
+        if (!unlocked || !companionEnabled || chatPending || processingAudio || (speaker.State == SynthesizerState.Speaking || piperSpeaking))
+            return;
+        var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        if (!GetLastInputInfo(ref info)) return;
+        var idleMs = unchecked((uint)Environment.TickCount - info.dwTime);
+        if (idleMs > 5 * 60 * 1000) return;
+        // Do not speak into the active microphone: show a check-in in text
+        // until voice listening is stopped.
+        Respond("I'm here if you'd like to chat. How has your day been going?", !listening);
+    }
+
+    private async Task TypeIntoAppAsync(string app, string content)
+    {
+        try { Respond(await WindowsTextAutomation.TypeIntoAsync(app, content)); }
+        catch (Exception ex) { Respond("Windows typing failed: " + ex.Message); }
+    }
+
+    private void OpenExistingMt5()
+    {
+        // Prefer the terminal the user has ALREADY launched and logged into.
+        // Starting a second MT5 terminal could open a different account/profile.
+        foreach (var name in new[] { "terminal64", "terminal" })
+        {
+            foreach (var terminal in Process.GetProcessesByName(name))
+            {
+                using (terminal)
+                {
+                    try
+                    {
+                        if (terminal.MainWindowHandle == IntPtr.Zero) continue;
+                        ShowWindow(terminal.MainWindowHandle, 9);
+                        var focused = SetForegroundWindow(terminal.MainWindowHandle);
+                        Respond(focused
+                            ? "Switched to your already running MetaTrader 5 terminal."
+                            : "MetaTrader 5 is running, but Windows prevented me from focusing its window.");
+                        return;
+                    }
+                    catch (InvalidOperationException) { }
+                    catch (System.ComponentModel.Win32Exception) { }
+                }
+            }
+        }
+        if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
+            Respond("Opening the installed MetaTrader 5 terminal.");
+        else Respond("MetaTrader 5 is not currently running and no Start Menu shortcut was found.");
+    }
+
+    private async Task InstallMt5BridgeAsync()
+    {
+        try
+        {
+            StatusText.Text = "Preparing the local MetaTrader bridge…";
+            Respond(await Mt5BridgeInstaller.InstallAsync());
+        }
+        catch (Exception ex) { Respond("MT5 bridge setup failed: " + ex.Message); }
+    }
+
+    private async Task FindLocalFilesAsync(string term)
+    {
+        StatusText.Text = "Searching your Documents, Downloads, Desktop and Pictures…";
+        try
+        {
+            var results = await Task.Run(() =>
+            {
+                var roots = new[]
+                {
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+                }.Distinct(StringComparer.OrdinalIgnoreCase).Where(Directory.Exists);
+                var found = new List<string>();
+                var scanned = 0;
+                foreach (var root in roots)
+                {
+                    var folders = new Queue<(string Path, int Depth)>();
+                    folders.Enqueue((root, 0));
+                    while (folders.Count > 0 && scanned < 8000 && found.Count < 10)
+                    {
+                        var (folder, depth) = folders.Dequeue();
+                        try
+                        {
+                            foreach (var file in Directory.EnumerateFiles(folder))
+                            {
+                                if (++scanned > 8000) break;
+                                if (Path.GetFileName(file).Contains(term, StringComparison.OrdinalIgnoreCase))
+                                    found.Add(file);
+                                if (found.Count >= 10) break;
+                            }
+                            if (depth < 3)
+                            {
+                                foreach (var sub in Directory.EnumerateDirectories(folder))
+                                {
+                                    if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) == 0)
+                                        folders.Enqueue((sub, depth + 1));
+                                }
+                            }
+                        }
+                        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+                    }
+                }
+                return found;
+            });
+            Respond(results.Count == 0
+                ? "No matching file was found in your common folders. Search is limited to 8,000 files and four folder levels."
+                : "Matching local files:\n" + string.Join("\n", results));
+        }
+        catch (Exception ex) { Respond("File search failed: " + ex.Message); }
+    }
+
+    private bool TryHandleMemoryCommand(string normalized, string original)
+    {
+        if (normalized is "what do you remember" or "show memory" or "show my memory" or "what do you remember about me" ||
+            normalized.Contains("kya yaad hai") || normalized.Contains("क्या याद है") || normalized.Contains("کیا یاد ہے"))
+        {
+            Respond(memory.Items.Count == 0
+                ? "I haven't saved any personal memories yet. Say 'remember that ...' to save a preference."
+                : "Your private saved memories:\n" + string.Join("\n", memory.Items.Select((item, i) => $"{i + 1}. {item}")));
+            return true;
+        }
+        if (normalized is "clear memory" or "delete all memories" or "forget everything")
+        {
+            var answer = System.Windows.MessageBox.Show("Permanently delete all Madi AI saved memories on this PC?", "Confirm local memory deletion",
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+            if (answer == System.Windows.MessageBoxResult.Yes) { memory.Clear(); Respond("All Madi AI saved memories were deleted from this PC."); }
+            else Respond("Memory deletion cancelled.");
+            return true;
+        }
+        var remember = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:remember that|remember|yaad rakh(?:o)?(?: ke)?|याद रखो(?: कि)?|یاد رکھو(?: کہ)?)\s+(.+)$");
+        if (remember.Success)
+        {
+            memory.TryRemember(remember.Groups[1].Value, out var feedback);
+            Respond(feedback);
+            return true;
+        }
+        var forget = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:forget that|forget|bhool jao|भूल जाओ|بھول جاؤ)\s+(.+)$");
+        if (forget.Success)
+        {
+            var count = memory.Forget(forget.Groups[1].Value);
+            Respond(count == 0 ? "I couldn't find a matching saved memory." : $"Removed {count} matching saved memory item(s).");
+            return true;
+        }
+        return false;
+    }
+
     private static string? FindOllama()
     {
         var paths = new[]
@@ -322,63 +1213,185 @@ public partial class MainWindow : Window
         return env.Split(Path.PathSeparator).Select(p => Path.Combine(p.Trim('"'), "ollama.exe")).FirstOrDefault(File.Exists);
     }
 
+    private string ChooseResponsiveModel(List<string> models)
+    {
+        var chosen = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase))
+            ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+            ?? models[0];
+        // If Windows reports critical RAM pressure, choose the smaller
+        // installed local model rather than letting a larger model stall.
+        if (int.TryParse(RamValue.Text.TrimEnd('%'), out var used) && used >= 90)
+        {
+            var fast = models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase));
+            if (fast != null) chosen = fast;
+        }
+        return chosen;
+    }
+
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("Please wait for the current answer.", false); return; }
+        if (chatPending)
+        {
+            // A new user request supersedes an old slow reply, rather than
+            // forcing the user to wait behind several minutes of generation.
+            queuedQuestions.Clear();
+            queuedQuestions.Enqueue(question);
+            userCancelledChat = true;
+            currentChatCancellation?.Cancel();
+            StopSpeech();
+            StatusText.Text = "Switching to your latest request...";
+            return;
+        }
         chatPending = true;
+        userCancelledChat = false;
+        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
         {
-            LocalAiModuleText.Text = "◌  Local AI • checking";
-            CoreState.Text = "MADI AI • THINKING";
-            Respond("Checking local AI model...", false);
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
-            using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
-            tagsResponse.EnsureSuccessStatusCode();
-            using var tags = JsonDocument.Parse(await tagsResponse.Content.ReadAsStringAsync());
-            var models = tags.RootElement.GetProperty("models").EnumerateArray()
-                .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
+            CoreState.Text = "MADI AI • RESPONDING";
+            var models = await GetInstalledModelsAsync();
             if (models.Count == 0)
             {
-                LocalAiModuleText.Text = "◌  Local AI • model required";
-                Respond("Offline AI needs a language model. Open Settings and choose Enable Local AI.");
+                await TryStartInstalledOllamaAsync();
+                models = await GetInstalledModelsAsync(forceRefresh: true);
+            }
+            if (models.Count == 0)
+            {
+                LocalAiModuleText.Text = "◌  Local AI • disconnected";
+                Respond("The local AI engine is unavailable. Built-in app commands are still available.");
                 return;
             }
-            var model = models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
-                ?? models[0];
+            // Favor a responsive installed local model unless the user explicitly
+            // selected a different one. A model name in /api/tags alone does not
+            // mean that an answer is ready.
+            var model = ChooseResponsiveModel(models);
+            LocalAiModuleText.Text = "◌  Local AI • " + model + " generating";
+            StatusText.Text = "Madi is generating a reply locally. Please wait...";
             var messages = new List<object>
             {
-                new { role = "system", content = "You are Madi AI, a helpful concise Windows desktop assistant. Respond in the user's language. Never claim to have opened applications, placed trades, sent messages, or changed files unless an action was actually performed. Be clear when a capability is unavailable. Keep spoken replies brief." }
+                new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information. The user can manage memory with remember that, show memory, forget, and clear memory. " + memory.BuildPrompt() }
             };
-            foreach (var entry in chatHistory.TakeLast(8))
-                messages.Add(new { role = entry.Role, content = entry.Content });
+            foreach (var entry in chatHistory.TakeLast(6))
+                messages.Add(new { role = entry.Role,
+                    content = entry.Content.Length > 650 ? entry.Content[^650..] : entry.Content });
             messages.Add(new { role = "user", content = question });
-            var payload = JsonSerializer.Serialize(new { model, stream = false, messages, options = new { num_predict = 180 } });
-            using var request = new StringContent(payload, Encoding.UTF8, "application/json");
-            using var response = await client.PostAsync("http://127.0.0.1:11434/api/chat", request);
+            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 120, num_ctx = 1536 }, keep_alive = "30m" });
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:11434/api/chat")
+            { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentChatCancellation.Token);
             response.EnsureSuccessStatusCode();
-            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer."); return; }
-            LocalAiModuleText.Text = "●  Local AI • ready";
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var answer = new StringBuilder();
+            var spokenChars = 0;
+            ConversationText.AppendText("Madi: ");
+            var lastUiUpdate = DateTime.UtcNow;
+            string? line;
+            var firstTokenDeadline = DateTime.UtcNow.AddSeconds(16);
+            while (true)
+            {
+                var read = reader.ReadLineAsync(currentChatCancellation.Token).AsTask();
+                if (answer.Length == 0)
+                {
+                    var remaining = firstTokenDeadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero) throw new TimeoutException("Local model did not begin replying within 16 seconds.");
+                    line = await read.WaitAsync(remaining, currentChatCancellation.Token);
+                }
+                else line = await read;
+                if (line == null) break;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var chunk = JsonDocument.Parse(line);
+                if (chunk.RootElement.TryGetProperty("error", out var error))
+                    throw new InvalidOperationException(error.GetString());
+                if (chunk.RootElement.TryGetProperty("message", out var message) &&
+                    message.TryGetProperty("content", out var content))
+                {
+                    var part = content.GetString();
+                    if (!string.IsNullOrEmpty(part))
+                    {
+                        answer.Append(part);
+                        ConversationText.AppendText(part);
+                        // Start speaking as soon as the first complete sentence
+                        // arrives instead of waiting for the whole model answer.
+                        if (spokenChars == 0 && answer.Length >= 35)
+                        {
+                            var soFar = answer.ToString();
+                            var sentenceEnd = soFar.IndexOfAny(new[] { '.', '!', '?', '۔', '؟' });
+                            if (sentenceEnd >= 24 && sentenceEnd < 260)
+                            {
+                                Speak(soFar[..(sentenceEnd + 1)].Trim());
+                                spokenChars = sentenceEnd + 1;
+                            }
+                        }
+                        if ((DateTime.UtcNow - lastUiUpdate).TotalMilliseconds > 120)
+                        {
+                            ConversationText.ScrollToEnd();
+                            var current = answer.ToString();
+                            StatusText.Text = current.Length > 150 ? current[^150..] : current;
+                            lastUiUpdate = DateTime.UtcNow;
+                        }
+                    }
+                }
+                if (chunk.RootElement.TryGetProperty("done", out var done) && done.GetBoolean()) break;
+            }
+            ConversationText.AppendText("\n\n");
+            ConversationText.ScrollToEnd();
+            var result = answer.ToString().Trim();
+            if (result.Length == 0) { Respond("The local model returned an empty answer."); return; }
+            LocalAiModuleText.Text = "●  Local AI • " + model + " responding";
             chatHistory.Add(("user", question));
-            chatHistory.Add(("assistant", answer));
-            if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
-            Respond(answer);
+            chatHistory.Add(("assistant", result));
+            if (chatHistory.Count > 100) chatHistory.RemoveRange(0, chatHistory.Count - 100);
+            SaveConversationHistory();
+            StatusText.Text = result;
+            if (spokenChars == 0) Speak(result);
+            else
+            {
+                var remainder = result[spokenChars..].Trim();
+                if (remainder.Length > 0)
+                {
+                    SpeakRemainder(remainder);
+                }
+            }
+        }
+        catch (TimeoutException)
+        {
+            currentChatCancellation?.Cancel();
+            LocalAiModuleText.Text = "◌  Local AI • slow response";
+            Respond("The local model did not respond promptly. Please try a shorter question or choose a faster model.", false);
         }
         catch (HttpRequestException)
         {
-            LocalAiModuleText.Text = "◌  Local AI • not running";
-            Respond("Offline AI is not ready. Open Settings to install a free local model. App-opening commands still work.");
+            LocalAiModuleText.Text = "◌  Local AI • disconnected";
+            Respond("Ollama is not reachable. Start Ollama and try again.");
         }
         catch (TaskCanceledException)
         {
-            Respond("The local AI response timed out. Please try again.");
+            ConversationText.AppendText("\n\n");
+            if (!userCancelledChat) Respond("The local model took too long. Try a smaller model in Settings.");
+        }
+        catch (OperationCanceledException)
+        {
+            ConversationText.AppendText("\n\n");
+            if (!userCancelledChat) Respond("The local model request was interrupted.");
         }
         catch (Exception ex)
         {
-            Respond("Local AI chat error: " + ex.Message);
+            Respond("Local AI error: " + ex.Message);
         }
-        finally { chatPending = false; CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE"; }
+        finally
+        {
+            currentChatCancellation?.Dispose();
+            currentChatCancellation = null;
+            chatPending = false;
+            CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+            if (queuedQuestions.Count > 0 && unlocked)
+            {
+                var next = queuedQuestions.Dequeue();
+                _ = AskLocalAiAsync(next);
+            }
+        }
     }
 
     [DllImport("user32.dll")]
@@ -443,6 +1456,33 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private string ChromePreferencesFile => Path.Combine(profile, "chrome-profiles.json");
+    private string? GetPreferredChromeFolder(string service)
+    {
+        try
+        {
+            if (!File.Exists(ChromePreferencesFile)) return null;
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ChromePreferencesFile));
+            return values != null && values.TryGetValue(service, out var folder) ? folder : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+    private void SavePreferredChromeFolder(string service, string folder)
+    {
+        try
+        {
+            Dictionary<string, string> values;
+            if (File.Exists(ChromePreferencesFile))
+                values = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(ChromePreferencesFile))
+                    ?? new Dictionary<string, string>();
+            else values = new Dictionary<string, string>();
+            values[service] = folder;
+            Directory.CreateDirectory(profile);
+            File.WriteAllText(ChromePreferencesFile, JsonSerializer.Serialize(values));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { }
+    }
+
     private sealed record ChromeProfile(string Folder, string Name);
     private static List<ChromeProfile> GetChromeProfiles()
     {
@@ -491,8 +1531,17 @@ public partial class MainWindow : Window
         if (named.Success)
         {
             var n = named.Groups[1].Value;
-            selected = profiles.FirstOrDefault(p => p.Folder.Equals("Profile " + n, StringComparison.OrdinalIgnoreCase))
+            // Numbering matches the profile choices displayed to the user.
+            if (int.TryParse(n, out var profileNumber) && profileNumber >= 1 && profileNumber <= profiles.Count)
+                selected = profiles[profileNumber - 1];
+            selected ??= profiles.FirstOrDefault(p => p.Folder.Equals("Profile " + n, StringComparison.OrdinalIgnoreCase))
                 ?? profiles.FirstOrDefault(p => p.Name.Equals(n, StringComparison.OrdinalIgnoreCase));
+        }
+        if (selected == null)
+        {
+            var preferred = GetPreferredChromeFolder(service);
+            if (!string.IsNullOrWhiteSpace(preferred))
+                selected = profiles.FirstOrDefault(p => p.Folder.Equals(preferred, StringComparison.OrdinalIgnoreCase));
         }
         if (selected == null && profiles.Count > 1)
         {
@@ -508,6 +1557,7 @@ public partial class MainWindow : Window
         if (selected != null) start.ArgumentList.Add("--profile-directory=" + selected.Folder);
         start.ArgumentList.Add(url);
         Process.Start(start);
+        if (selected != null) SavePreferredChromeFolder(service, selected.Folder);
         Respond(selected == null ? "Opening " + service + " in Chrome." : "Opening " + service + " in Chrome profile " + selected.Name + ".");
     }
     private bool TrySelectPendingChromeProfile(string command)
@@ -542,6 +1592,7 @@ public partial class MainWindow : Window
         start.ArgumentList.Add("--profile-directory=" + selected.Folder);
         start.ArgumentList.Add(targetUrl);
         Process.Start(start);
+        SavePreferredChromeFolder(serviceName, selected.Folder);
         Respond("Opening " + serviceName + " in Chrome profile " + selected.Name + ".");
         return true;
     }
@@ -604,6 +1655,8 @@ public partial class MainWindow : Window
     }
     private void UpdateStats()
     {
+        var mt5 = Mt5Bridge.Read(out _);
+        Mt5ModuleText.Text = mt5 == null ? "◌  MT5 • bridge offline" : "●  MT5 • account " + mt5.Login;
         ClockText.Text = DateTime.Now.ToString("hh:mm:ss tt");
         DateText.Text = DateTime.Now.ToString("ddd, MMM d, yyyy");
         try
@@ -618,7 +1671,11 @@ public partial class MainWindow : Window
                 var i = ToLong(idle); var k = ToLong(kernel); var u = ToLong(user);
                 var deltaTotal = (k - oldKernel) + (u - oldUser);
                 if (deltaTotal > 0 && oldKernel != 0)
-                    CpuValue.Text = Math.Clamp(Math.Round(100 * (1 - (i - oldIdle) / (double)deltaTotal)), 0, 100) + "%";
+                {
+                    var currentCpu = Math.Clamp(100 * (1 - (i - oldIdle) / (double)deltaTotal), 0, 100);
+                    smoothedCpu = smoothedCpu < 0 ? currentCpu : smoothedCpu * 0.65 + currentCpu * 0.35;
+                    CpuValue.Text = Math.Round(smoothedCpu) + "%";
+                }
                 oldIdle = i; oldKernel = k; oldUser = u;
             }
         }
@@ -646,6 +1703,18 @@ public partial class MainWindow : Window
         }
         if (listening)
         {
+            // The top STOP control must always stop listening. Only the mic
+            // button acts as an interrupt while Madi is talking.
+            if (ReferenceEquals(sender, MicButton) &&
+                (speaker.State == SynthesizerState.Speaking || piperSpeaking))
+            {
+                StopSpeech();
+                if (microphone == null && !processingAudio && !pauseForSpeech)
+                    StartRecording();
+                Respond("Speech interrupted. I'm listening.", false);
+                return;
+            }
+            StopSpeech();
             listening = false;
             voiceChunk.Stop();
             try { microphone?.StopRecording(); } catch { }
@@ -676,9 +1745,15 @@ public partial class MainWindow : Window
             MicButton.Content = "■";
             StartVoiceButton.Content = "STOP";
             VoiceModuleText.Text = "●  Voice • listening";
-            Respond("Listening. Speak your command.", false);
-            speaker.SpeakAsyncCancelAll();
-            StartRecording();
+            // Never record the assistant's own startup greeting.
+            GreetOnce();
+            var welcomeDeadline = DateTime.UtcNow.AddSeconds(16);
+            while (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking) &&
+                   DateTime.UtcNow < welcomeDeadline)
+                await Task.Delay(100);
+            if (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking))
+                StopSpeech();
+            if (listening) StartRecording();
         }
         catch (OperationCanceledException)
         {
@@ -692,7 +1767,7 @@ public partial class MainWindow : Window
             ListenStatus.Text = "● Error";
             CoreState.Text = "VOICE UNAVAILABLE";
             VoiceModuleText.Text = "◌  Voice • check microphone";
-            Respond("Voice setup failed: " + ex.Message, false);
+            Respond("Voice setup failed: " + ex.Message);
         }
         finally
         {
@@ -762,6 +1837,7 @@ public partial class MainWindow : Window
         firstSpeech = DateTime.MinValue;
         lastSpeech = DateTime.MinValue;
         speechFrames = 0;
+        noiseFloor = 0.003;
         Interlocked.Exchange(ref stopRequested, 0);
         microphone = new WaveInEvent { DeviceNumber = micDeviceNumber, WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
         waveWriter = new WaveFileWriter(currentRecording, microphone.WaveFormat);
@@ -780,10 +1856,15 @@ public partial class MainWindow : Window
             }
             double rms = samples > 0 ? Math.Sqrt((double)energy / samples) / 32768.0 : 0;
             var now = DateTime.UtcNow;
-            if (rms > 0.014)
+            // Reject constant fan/room noise instead of feeding Whisper random
+            // silent clips that become hallucinated Urdu or unrelated commands.
+            if (firstSpeech == DateTime.MinValue && rms < 0.012)
+                noiseFloor = noiseFloor * 0.90 + rms * 0.10;
+            var voiceThreshold = Math.Max(0.011, noiseFloor * 2.7);
+            if (rms > voiceThreshold)
             {
                 speechFrames++;
-                if (speechFrames >= 2)
+                if (speechFrames >= 3)
                 {
                     if (firstSpeech == DateTime.MinValue) firstSpeech = now;
                     lastSpeech = now;
@@ -791,8 +1872,8 @@ public partial class MainWindow : Window
             }
             else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
             if (firstSpeech != DateTime.MinValue &&
-                (now - firstSpeech).TotalMilliseconds >= 150 &&
-                (now - lastSpeech).TotalMilliseconds >= 550)
+                (now - firstSpeech).TotalMilliseconds >= 350 &&
+                (now - lastSpeech).TotalMilliseconds >= 650)
             {
                 if (Interlocked.Exchange(ref stopRequested, 1) == 0)
                     Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
@@ -807,6 +1888,17 @@ public partial class MainWindow : Window
                 try { waveWriter?.Dispose(); microphone?.Dispose(); } catch { }
                 waveWriter = null; microphone = null;
                 if (file == null) return;
+                if (pauseForSpeech)
+                {
+                    TryDelete(file);
+                    var speechDeadline = DateTime.UtcNow.AddSeconds(45);
+                    while (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking) &&
+                           DateTime.UtcNow < speechDeadline)
+                        await Task.Delay(100);
+                    pauseForSpeech = false;
+                    if (listening) StartRecording();
+                    return;
+                }
                 if (!listening || firstSpeech == DateTime.MinValue)
                 {
                     TryDelete(file);
@@ -815,14 +1907,14 @@ public partial class MainWindow : Window
                 }
                 processingAudio = true;
                 try { await TranscribeAsync(file); }
-                catch (Exception ex) { Respond("Voice recognition error: " + ex.Message, false); }
+                catch (Exception ex) { Respond("Voice recognition error: " + ex.Message); }
                 finally
                 {
                     processingAudio = false;
                     TryDelete(file);
                     // Don't record the assistant's own spoken response.
-                    var deadline = DateTime.UtcNow.AddSeconds(10);
-                    while (listening && (chatPending || speaker.State == SynthesizerState.Speaking) && DateTime.UtcNow < deadline)
+                    var deadline = DateTime.UtcNow.AddSeconds(45);
+                    while (listening && (chatPending || (speaker.State == SynthesizerState.Speaking || piperSpeaking)) && DateTime.UtcNow < deadline)
                         await Task.Delay(100);
                     if (listening) StartRecording();
                 }
@@ -833,8 +1925,9 @@ public partial class MainWindow : Window
     }
     private async Task TranscribeAsync(string wavPath)
     {
-        ListenStatus.Text = "● Understanding";
-        CoreState.Text = "MADI AI • UNDERSTANDING";
+        ListenStatus.Text = "● Transcribing speech";
+        CoreState.Text = "MADI AI • TRANSCRIBING";
+        StatusText.Text = "Processing your microphone audio locally...";
         var selected = LanguagePicker.SelectedIndex;
         var language = selected == 1 ? "en" : selected == 2 ? "ur" : selected == 3 ? "hi" : "auto";
         var factory = voiceFactory ?? throw new InvalidOperationException("Speech engine not initialized.");
@@ -843,20 +1936,32 @@ public partial class MainWindow : Window
             using var processor = factory.CreateBuilder().WithLanguage(language).Build();
             using var stream = File.OpenRead(wavPath);
             var transcript = new StringBuilder();
-            await foreach (var segment in processor.ProcessAsync(stream))
+            using var recognitionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            await foreach (var segment in processor.ProcessAsync(stream, recognitionTimeout.Token))
                 transcript.Append(segment.Text).Append(' ');
             return transcript.ToString().Trim();
         });
-        if (!string.IsNullOrWhiteSpace(recognized))
+        // Whisper can hallucinate stock phrases when the microphone receives noise.
+        // Reject these instead of executing unrelated commands.
+        var ignored = new[] { "thank you for watching", "thanks for watching",
+            "subscribe to my channel", "you", "bye bye", "subtitles by" };
+        if (!string.IsNullOrWhiteSpace(recognized) &&
+            recognized.Length >= 2 &&
+            !ignored.Any(x => recognized.Trim(' ', '.', '!', '،', '۔').Equals(x, StringComparison.OrdinalIgnoreCase)))
         {
             StatusText.Text = "Heard: " + recognized;
             Execute(recognized);
         }
-        ListenStatus.Text = listening ? "● Listening" : "● Standby";
-        CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+        else Respond("I didn't catch that clearly. Please repeat your request.");
+        ListenStatus.Text = chatPending ? "● Responding" : listening ? "● Listening" : "● Standby";
+        CoreState.Text = chatPending ? "MADI AI • RESPONDING" : listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
+    private void Edge_Click(object sender, RoutedEventArgs e) => Execute("open edge");
+    private void Explorer_Click(object sender, RoutedEventArgs e) => Execute("open file explorer");
+    private void Gmail_Click(object sender, RoutedEventArgs e) => Execute("open gmail");
+    private void Telegram_Click(object sender, RoutedEventArgs e) => Execute("open telegram");
     private void Browser_Click(object sender, RoutedEventArgs e) => Execute("open google");
     private void Youtube_Click(object sender, RoutedEventArgs e) => Execute("open youtube");
     private void Whatsapp_Click(object sender, RoutedEventArgs e) => Execute("open whatsapp");
@@ -864,7 +1969,17 @@ public partial class MainWindow : Window
     private void Ali_Click(object sender, RoutedEventArgs e) => Execute("open aliexpress");
     private void Canva_Click(object sender, RoutedEventArgs e) => Execute("open canva");
     private void Mt5_Click(object sender, RoutedEventArgs e) => Execute("open mt5");
-    private void Chat_Click(object sender, RoutedEventArgs e) { Respond("Ask Madi AI a question in the command bar. Local AI chat uses Ollama if installed.", false); CommandBox.Focus(); }
+    private void Auto_Click(object sender, RoutedEventArgs e)
+    {
+        if (!unlocked) return;
+        companionEnabled = !companionEnabled;
+        File.WriteAllText(CompanionFile, companionEnabled ? "on" : "off");
+        AutoButton.Content = companionEnabled ? "Auto: ON" : "Auto: OFF";
+        Respond(companionEnabled
+            ? "Occasional local check-ins are enabled while you are active."
+            : "Automatic check-ins are disabled.", false);
+    }
+    private void Chat_Click(object sender, RoutedEventArgs e) { RightPanelTabs.SelectedIndex = 1; CommandBox.Focus(); }
     private void ChatGpt_Click(object sender, RoutedEventArgs e) => Execute("open chatgpt");
     private void Office_Click(object sender, RoutedEventArgs e) => Execute("open word");
     private void Calc_Click(object sender, RoutedEventArgs e) => Execute("open calculator");
@@ -878,13 +1993,14 @@ public partial class MainWindow : Window
         var dialog = new Microsoft.Win32.OpenFileDialog();
         if (dialog.ShowDialog() == true) { try { Open(dialog.FileName); Respond("Opening your selected file."); } catch (Exception ex) { Respond(ex.Message); } }
     }
-    private void Tasks_Click(object sender, RoutedEventArgs e) => Respond("Custom task routines are planned, but not enabled yet.");
-    private void Settings_Click(object sender, RoutedEventArgs e)
+    private void Tasks_Click(object sender, RoutedEventArgs e) => Execute("list routines");
+    private async void Settings_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
+        var installedModels = await GetInstalledModelsAsync();
         var window = new Window
         {
-            Title = "Madi AI • Settings", Width = 570, Height = 555,
+            Title = "Madi AI • Settings", Width = 600, Height = 690,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
             Foreground = System.Windows.Media.Brushes.White
@@ -910,9 +2026,59 @@ public partial class MainWindow : Window
             FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 15, 0, 8) });
         var installed = speaker.GetInstalledVoices().Where(v => v.Enabled)
             .Select(v => v.VoiceInfo.Culture.Name).Distinct().ToList();
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Offline neural voices: English " + (PiperVoice.IsAvailableFor("Hello") ? "ready" : "unavailable") +
+                " | Urdu " + (PiperVoice.IsAvailableFor("سلام") ? "ready" : "unavailable") +
+                " | Hindi " + (PiperVoice.IsAvailableFor("नमस्ते") ? "offline ready" : "Windows voice fallback"),
+            FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8)
+        });
         panel.Children.Add(new TextBlock { Text = "Windows spoken voice languages: " + (installed.Count == 0 ? "none" : string.Join(", ", installed)),
             FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 8) });
+        panel.Children.Add(new TextBlock { Text = "Preferred Windows voice (matching the language is prioritized)",
+            FontSize = 13, Margin = new Thickness(0, 8, 0, 6) });
+        var voiceChoices = speaker.GetInstalledVoices().Where(v => v.Enabled).Select(v => v.VoiceInfo.Name).ToList();
+        var voicePicker = new System.Windows.Controls.ComboBox
+        {
+            Height = 35, ItemsSource = voiceChoices,
+            SelectedItem = voiceChoices.FirstOrDefault(v => v.Equals(preferredVoice, StringComparison.OrdinalIgnoreCase))
+                ?? voiceChoices.FirstOrDefault(),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+        };
+        if (TryFindResource("DarkLanguageCombo") is Style voiceComboStyle) voicePicker.Style = voiceComboStyle;
+        panel.Children.Add(voicePicker);
+        panel.Children.Add(new TextBlock { Text = "Windows speech speed (neural voice uses its own pace)", FontSize = 13, Margin = new Thickness(0, 9, 0, 4) });
+        var rateSlider = new System.Windows.Controls.Slider
+        {
+            Minimum = -2, Maximum = 4, TickFrequency = 1, IsSnapToTickEnabled = true, Value = speechRate,
+            Foreground = System.Windows.Media.Brushes.Cyan
+        };
+        panel.Children.Add(rateSlider);
+        var neuralToggle = new System.Windows.Controls.CheckBox
+        {
+            Content = "Prefer bundled offline neural voice where available",
+            IsChecked = useNeuralVoice, Foreground = System.Windows.Media.Brushes.LightSkyBlue,
+            Margin = new Thickness(0, 8, 0, 5)
+        };
+        panel.Children.Add(neuralToggle);
+        var voiceSave = new System.Windows.Controls.Button
+        {
+            Content = "SAVE VOICE PREFERENCES", Height = 37, Margin = new Thickness(0, 7, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(17, 74, 120))
+        };
+        voiceSave.Click += (_, _) =>
+        {
+            preferredVoice = voicePicker.SelectedItem as string;
+            speechRate = (int)rateSlider.Value;
+            useNeuralVoice = neuralToggle.IsChecked == true;
+            File.WriteAllText(VoiceSettingsFile, JsonSerializer.Serialize(new { voice = preferredVoice, rate = speechRate, neural = useNeuralVoice }));
+            Respond("Voice preferences saved locally.", false);
+        };
+        panel.Children.Add(voiceSave);
         panel.Children.Add(new TextBlock { Text = "Secret code: salted hash in your local Windows profile. No code is stored in GitHub.",
             FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 15) });
         var save = new System.Windows.Controls.Button { Content = "SAVE MICROPHONE SELECTION", Height = 43,
@@ -964,48 +2130,118 @@ public partial class MainWindow : Window
             finally { micTest.IsEnabled = true; micTest.Content = "TEST MICROPHONE (3 SECONDS)"; }
         };
         panel.Children.Add(micTest);
-        var local = new System.Windows.Controls.Button { Content = "ENABLE FREE OFFLINE AI (OLLAMA)", Height = 43, Margin = new Thickness(0, 10, 0, 0),
+        panel.Children.Add(new TextBlock { Text = "Installed Ollama models (no download required)", Margin = new Thickness(0, 12, 0, 6), FontSize = 14 });
+        var modelPicker = new System.Windows.Controls.ComboBox
+        {
+            Height = 36, ItemsSource = installedModels,
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+        };
+        if (TryFindResource("DarkLanguageCombo") is Style modelStyle) modelPicker.Style = modelStyle;
+        modelPicker.SelectedItem = installedModels.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+            ?? installedModels.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+            ?? installedModels.FirstOrDefault();
+        modelPicker.SelectionChanged += (_, _) =>
+        {
+            if (modelPicker.SelectedItem is not string name) return;
+            selectedModel = name;
+            try { File.WriteAllText(SelectedModelFile, name); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            LocalAiModuleText.Text = "●  Local AI • " + name;
+        };
+        panel.Children.Add(modelPicker);
+        panel.Children.Add(new TextBlock { Text = installedModels.Count > 0
+            ? "Model detected. Select it above; there is no need to download it again."
+            : "No local model detected. Ensure Ollama is running on port 11434.",
+            Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
+        var local = new System.Windows.Controls.Button { Content = "CHECK INSTALLED OLLAMA MODELS", Height = 43, Margin = new Thickness(0, 10, 0, 0),
             Foreground = System.Windows.Media.Brushes.White,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(75, 40, 134)) };
         local.Click += async (_, _) =>
         {
-            if (installingLocalAi) return;
-            var ollama = FindOllama();
-            if (ollama == null)
+            var detected = await GetInstalledModelsAsync();
+            if (detected.Count > 0)
             {
-                Respond("Ollama is not installed. Opening the official Windows installer page.", false);
+                modelPicker.ItemsSource = detected;
+                modelPicker.SelectedItem = detected.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+                    ?? detected.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+                    ?? detected[0];
+                Respond("Ollama is ready. Installed model: " + modelPicker.SelectedItem + ". No download needed.", false);
+                return;
+            }
+            if (FindOllama() == null)
+            {
+                Respond("Ollama is not installed. Opening its official installer page.", false);
                 Open("https://ollama.com/download/windows");
                 return;
             }
-            if (System.Windows.MessageBox.Show(
-                "Download the free llama3.2:1b model? It uses about 1.3 GB of disk space and requires internet for the initial download. No paid API key is needed.",
-                "Enable Madi AI Offline Chat", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            installingLocalAi = true;
-            local.IsEnabled = false;
-            local.Content = "DOWNLOADING LOCAL MODEL — PLEASE WAIT";
-            try
-            {
-                var result = await Task.Run(async () =>
-                {
-                    using var proc = new Process { StartInfo = new ProcessStartInfo(ollama)
-                    {
-                        UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
-                        RedirectStandardError = true, Arguments = "pull llama3.2:1b"
-                    }};
-                    proc.Start();
-                    var output = proc.StandardOutput.ReadToEndAsync();
-                    var error = proc.StandardError.ReadToEndAsync();
-                    await proc.WaitForExitAsync();
-                    return (proc.ExitCode, StdOut: await output, StdErr: await error);
-                });
-                if (result.ExitCode != 0) throw new InvalidOperationException(result.StdErr.Length > 250 ? result.StdErr[..250] : result.StdErr);
-                Respond("Local AI model installed. You can now ask Madi AI general questions.");
-            }
-            catch (Exception ex) { Respond("Unable to install local model: " + ex.Message); }
-            finally { installingLocalAi = false; local.IsEnabled = true; local.Content = "ENABLE FREE OFFLINE AI (OLLAMA)"; }
+            Respond("Ollama is installed but its local service or models are unavailable. Start Ollama, then use 'ollama list' to verify models. Nothing was downloaded.", false);
         };
         panel.Children.Add(local);
-        window.Content = panel;
+        var connectMt5 = new System.Windows.Controls.Button
+        {
+            Content = "CONNECT LOCAL MT5 BRIDGE", Height = 40, Margin = new Thickness(0, 12, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 88, 124))
+        };
+        connectMt5.Click += async (_, _) => { connectMt5.IsEnabled = false; await InstallMt5BridgeAsync(); connectMt5.IsEnabled = true; };
+        panel.Children.Add(connectMt5);
+        var companionToggle = new System.Windows.Controls.CheckBox
+        {
+            Content = "Occasional proactive companion check-ins (local, opt-in)",
+            IsChecked = companionEnabled, Margin = new Thickness(0, 18, 0, 8),
+            Foreground = System.Windows.Media.Brushes.LightSkyBlue
+        };
+        companionToggle.Checked += (_, _) => { companionEnabled = true; File.WriteAllText(CompanionFile, "on"); };
+        companionToggle.Unchecked += (_, _) => { companionEnabled = false; File.WriteAllText(CompanionFile, "off"); };
+        panel.Children.Add(companionToggle);
+        var memoryButton = new System.Windows.Controls.Button
+        {
+            Content = "REVIEW SAVED LOCAL MEMORIES", Height = 40, Margin = new Thickness(0, 8, 0, 0),
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(21, 75, 116))
+        };
+        memoryButton.Click += (_, _) =>
+        {
+            var review = new Window
+            {
+                Title = "Madi AI • Private Memory", Width = 550, Height = 420, Owner = window,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
+                Foreground = System.Windows.Media.Brushes.White
+            };
+            var content = new DockPanel { Margin = new Thickness(16) };
+            var buttons = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+            DockPanel.SetDock(buttons, Dock.Bottom);
+            var list = new System.Windows.Controls.ListBox
+            {
+                ItemsSource = memory.Items.ToArray(), Foreground = System.Windows.Media.Brushes.White,
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+            };
+            var delete = new System.Windows.Controls.Button { Content = "DELETE SELECTED", Width = 160, Height = 36, Margin = new Thickness(0, 0, 8, 0) };
+            delete.Click += (_, _) =>
+            {
+                if (list.SelectedItem is not string selected) return;
+                if (memory.RemoveExact(selected)) list.ItemsSource = memory.Items.ToArray();
+            };
+            var clear = new System.Windows.Controls.Button { Content = "CLEAR ALL", Width = 120, Height = 36 };
+            clear.Click += (_, _) =>
+            {
+                if (System.Windows.MessageBox.Show("Delete all saved Madi AI memories?", "Confirm",
+                    System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes) return;
+                memory.Clear();
+                list.ItemsSource = memory.Items.ToArray();
+            };
+            buttons.Children.Add(delete);
+            buttons.Children.Add(clear);
+            content.Children.Add(buttons);
+            content.Children.Add(list);
+            review.Content = content;
+            review.ShowDialog();
+        };
+        panel.Children.Add(memoryButton);
+        window.Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         window.ShowDialog();
     }
 }

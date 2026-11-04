@@ -120,4 +120,24 @@ dd.line([(406,499),(410,571),(442,611)],fill=(57,214,255,175),width=3)
 dd.arc((182,605,518,715),180,355,fill=(39,214,255,220),width=4)
 face=Image.alpha_composite(face,detail)
 face.save("assets/assistant.png")
+# The reference screenshot supplied by the user includes the specific female
+# holographic portrait they approved. Prefer it over the earlier generic
+# point-cloud head. The crop is embedded as a small offline build asset.
+import base64
+from io import BytesIO
+portrait_data = os.path.join("assets", "madi_reference_face.b64")
+if os.path.exists(portrait_data):
+    with open(portrait_data, "r", encoding="ascii") as f:
+        data = base64.b64decode(f.read().strip(), validate=True)
+    with Image.open(BytesIO(data)) as reference:
+        reference.load()  # fail the build if the embedded reference is corrupt
+        reference = reference.convert("RGBA")
+        reference = reference.resize((560, 730), Image.Resampling.LANCZOS)
+        alpha = Image.new("L", reference.size, 0)
+        mask = ImageDraw.Draw(alpha)
+        mask.rounded_rectangle((5, 5, 555, 725), radius=95, fill=255)
+        reference.putalpha(alpha.filter(ImageFilter.GaussianBlur(9)))
+        composite = Image.new("RGBA", (700, 730), (0, 0, 0, 0))
+        composite.alpha_composite(reference, (70, 0))
+        composite.save("assets/assistant.png")
 print("Generated 1024px Madi icon and HD holographic point-cloud assistant")
