@@ -105,6 +105,10 @@ internal static class Program
         {
             try
             {
+                var recognitionModel = System.IO.Path.Combine(AppContext.BaseDirectory, "models", "ggml-base.bin");
+                if (!System.IO.File.Exists(recognitionModel))
+                    throw new System.IO.FileNotFoundException("Multilingual recognition model is missing.", recognitionModel);
+                using var recognizer = Whisper.net.WhisperFactory.FromPath(recognitionModel);
                 foreach (var sample in new[] { ("hi", "नमस्ते, मैं माडी हूँ।"), ("ur", "السلام علیکم، میں ماڈی ہوں۔") })
                 {
                     var wav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-indic-smoke-" + sample.Item1 + ".wav");
@@ -115,6 +119,10 @@ internal static class Program
                         using var audio = new NAudio.Wave.WaveFileReader(wav);
                         if (audio.TotalTime.TotalSeconds < 0.5)
                             throw new InvalidOperationException(sample.Item1 + " synthesis output was too short.");
+                        using var processor = recognizer.CreateBuilder().WithLanguage(sample.Item1).Build();
+                        var transcript = TranscribeSmokeSample(processor, wav).GetAwaiter().GetResult();
+                        if (string.IsNullOrWhiteSpace(transcript))
+                            throw new InvalidOperationException(sample.Item1 + " recognition returned no text.");
                     }
                     finally { try { System.IO.File.Delete(wav); } catch { } }
                 }
