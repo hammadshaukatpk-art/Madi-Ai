@@ -14,6 +14,12 @@ namespace MadiAI;
 /// </summary>
 internal static class IndicVoice
 {
+    // Keep one loaded local neural voice per language. Reloading the ONNX model
+    // for every sentence makes real-time conversation unnecessarily slow.
+    private static readonly object HindiSync = new();
+    private static readonly object UrduSync = new();
+    private static OfflineTts? hindiEngine;
+    private static OfflineTts? urduEngine;
     private static string Root => Path.Combine(AppContext.BaseDirectory, "sherpa");
     private static string Language(string text, string? selected) =>
         Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
@@ -50,13 +56,21 @@ internal static class IndicVoice
         config.Model.NumThreads = 2;
         config.Model.Provider = "cpu";
         config.MaxNumSentences = 1;
-        var tts = new OfflineTts(config);
-        var generation = new OfflineTtsGenerationConfig();
-        generation.Sid = 0;
-        generation.Speed = 1.0f;
-        generation.SilenceScale = 0.2f;
-        var audio = tts.GenerateWithConfig(text, generation, null);
-        return audio.SaveToWaveFile(outputFile) && new FileInfo(outputFile).Length > 3000;
+        var sync = language == "hi" ? HindiSync : UrduSync;
+        lock (sync)
+        {
+            var tts = language == "hi"
+                ? hindiEngine ??= new OfflineTts(config)
+                : urduEngine ??= new OfflineTts(config);
+            var generation = new OfflineTtsGenerationConfig
+            {
+                Sid = 0,
+                Speed = 1.0f,
+                SilenceScale = 0.2f
+            };
+            var audio = tts.GenerateWithConfig(text, generation, null);
+            return audio.SaveToWaveFile(outputFile) && new FileInfo(outputFile).Length > 3000;
+        }
     }
 
     internal static async Task<bool> SpeakAsync(string text, CancellationToken cancellationToken, string? selected = null)
