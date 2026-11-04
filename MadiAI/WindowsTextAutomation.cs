@@ -86,6 +86,14 @@ internal static class WindowsTextAutomation
         catch (Exception ex) { return "Unable to change the window state: " + ex.Message; }
     }
 
+    internal static bool IsProtectedWindow(string processName, string title) =>
+        processName.Equals("MadiAI", StringComparison.OrdinalIgnoreCase) ||
+        processName.Equals("explorer", StringComparison.OrdinalIgnoreCase) ||
+        processName.Equals("taskmgr", StringComparison.OrdinalIgnoreCase) ||
+        processName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
+        processName.Equals("terminal", StringComparison.OrdinalIgnoreCase) ||
+        title.Contains("MetaTrader", StringComparison.OrdinalIgnoreCase);
+
     private static Process[] FindSafeVisibleWindows(string appName) =>
         Process.GetProcesses().Where(p =>
         {
@@ -94,12 +102,7 @@ internal static class WindowsTextAutomation
                 var name = p.ProcessName;
                 var title = p.MainWindowTitle;
                 return p.MainWindowHandle != IntPtr.Zero &&
-                    !name.Equals("MadiAI", StringComparison.OrdinalIgnoreCase) &&
-                    !name.Equals("explorer", StringComparison.OrdinalIgnoreCase) &&
-                    !name.Equals("taskmgr", StringComparison.OrdinalIgnoreCase) &&
-                    !name.Equals("terminal64", StringComparison.OrdinalIgnoreCase) &&
-                    !name.Equals("terminal", StringComparison.OrdinalIgnoreCase) &&
-                    !title.Contains("MetaTrader", StringComparison.OrdinalIgnoreCase) &&
+                    !IsProtectedWindow(name, title) &&
                     (name.Contains(appName, StringComparison.OrdinalIgnoreCase) ||
                      title.Contains(appName, StringComparison.OrdinalIgnoreCase));
             }
@@ -130,9 +133,7 @@ internal static class WindowsTextAutomation
         if (matches.Length > 1) return "Several windows matched " + appName + ". Please use a more specific app name.";
 
         var target = matches[0];
-        if (target.ProcessName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
-            target.ProcessName.Equals("terminal", StringComparison.OrdinalIgnoreCase) ||
-            target.MainWindowTitle.Contains("MetaTrader", StringComparison.OrdinalIgnoreCase))
+        if (IsProtectedWindow(target.ProcessName, target.MainWindowTitle))
             return "Typing into a trading terminal is disabled. Use the dedicated MT5 bridge.";
         if (!HasValidNativeLayout)
             return "Windows keyboard automation is unavailable for this platform.";
