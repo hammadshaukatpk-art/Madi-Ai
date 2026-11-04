@@ -81,6 +81,7 @@
      </Border>
      <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" FontSize="11" Foreground="#65D5EE" Margin="2,12,0,4" TextWrapping="Wrap"/>
      <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • checking" FontSize="11" Foreground="#A5BBD0" Margin="2,3,0,0" TextWrapping="Wrap"/>
+     <TextBlock x:Name="Mt5ModuleText" Text="◌  MT5 • bridge offline" FontSize="11" Foreground="#A5BBD0" Margin="2,5,0,0" TextWrapping="Wrap"/>
     </StackPanel>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
      <StackPanel Margin="8,14,8,8">
