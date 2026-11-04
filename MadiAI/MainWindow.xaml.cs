@@ -31,6 +31,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
+    private readonly HttpClient aiHttp = new() { BaseAddress = new Uri("http://127.0.0.1:11434/"), Timeout = TimeSpan.FromSeconds(65) };
+    private string? cachedAiModel;
+    private DateTime modelCheckedAt = DateTime.MinValue;
     private string AuthFile => Path.Combine(profile, "unlock.json");
     private string ModelFile
     {
@@ -89,7 +92,7 @@ public partial class MainWindow : Window
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
         stats.Start();
         UpdateStats();
-        Closed += (_, _) => { voiceSetupCancellation?.Cancel(); listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } voiceFactory?.Dispose(); speaker.Dispose(); http.Dispose(); };
+        Closed += (_, _) => { voiceSetupCancellation?.Cancel(); listening = false; voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } voiceFactory?.Dispose(); speaker.Dispose(); http.Dispose(); aiHttp.Dispose(); };
     }
 
     private void Animate()
@@ -127,6 +130,12 @@ public partial class MainWindow : Window
         StatusText.Text = message;
         if (speak) Speak(message);
     }
+    private static bool IsActionRequest(string text)
+    {
+        // A question about an application is not a request to launch that application.
+        return Regex.IsMatch(text, @"^(?:open|launch|start|run|show|go to|bring up|kholo|khol do|کھولو|खोलो|खोल दो)\s+", RegexOptions.IgnoreCase);
+    }
+    private void SayAction(string message) => Respond(message, true);
 
     private void Unlock()
     {
@@ -200,13 +209,13 @@ public partial class MainWindow : Window
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
-            { PressMediaKey(0xAF); Respond("Volume increased.", false); return; }
+            { PressMediaKey(0xAF); SayAction("Volume increased."); return; }
             if (text is "volume down" or "decrease volume" or "آواز کم کرو" or "आवाज़ कम करो")
-            { PressMediaKey(0xAE); Respond("Volume decreased.", false); return; }
+            { PressMediaKey(0xAE); SayAction("Volume decreased."); return; }
             if (text is "mute" or "unmute" or "mute volume" or "خاموش" or "म्यूट")
-            { PressMediaKey(0xAD); Respond("Toggled system mute.", false); return; }
+            { PressMediaKey(0xAD); SayAction("Toggled system mute."); return; }
             if (text is "play pause" or "pause music" or "resume music")
-            { PressMediaKey(0xB3); Respond("Toggled media playback.", false); return; }
+            { PressMediaKey(0xB3); SayAction("Toggled media playback."); return; }
             if (text is "lock pc" or "lock computer" or "lock windows")
             { LockWorkStation(); return; }
             if (text is "open task manager" or "task manager")
@@ -249,8 +258,8 @@ public partial class MainWindow : Window
             {
                 ShowAppPicker(); return;
             }
-            if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
-            if (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप"))
+            if (IsActionRequest(text) && (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब"))) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
+            if (IsActionRequest(text) && (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप")))
             {
                 if (text.Contains("desktop") || text.Contains("app only") || text.Contains("ڈیسک ٹاپ") || text.Contains("डेस्कटॉप"))
                 {
@@ -260,27 +269,27 @@ public partial class MainWindow : Window
                 else OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", text);
                 return;
             }
-            if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
-            if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
-            if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
-            if (text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
-            if (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र"))
+            if (IsActionRequest(text) && (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस"))) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
+            if (IsActionRequest(text) && (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे"))) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
+            if (IsActionRequest(text) && (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा"))) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
+            if (IsActionRequest(text) && text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
+            if (IsActionRequest(text) && (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र")))
             { OpenGoogleWithProfile(text); return; }
-            if (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर")) { Open("calc.exe"); Respond("Opening Calculator."); return; }
-            if (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड")) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
-            if (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग")) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
-            if (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर")) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
-            if (text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
-            if (text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
-            if (text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
-            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर"))
+            if (IsActionRequest(text) && (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर"))) { Open("calc.exe"); Respond("Opening Calculator."); return; }
+            if (IsActionRequest(text) && (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड"))) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
+            if (IsActionRequest(text) && (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग"))) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
+            if (IsActionRequest(text) && (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर"))) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
+            if (IsActionRequest(text) && text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
+            if (IsActionRequest(text) && text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
+            if (IsActionRequest(text) && text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
+            if (IsActionRequest(text) && (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर")))
             {
                 if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
                     Respond("Opening MetaTrader 5.");
                 else Respond("MetaTrader 5 wasn't found in the Start Menu. You can select its terminal64.exe using Open App.");
                 return;
             }
-            if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
+            if ((IsActionRequest(text) || text.StartsWith("take ")) && (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट"))) { TakeScreenshot(); return; }
             if (text.StartsWith("search ") || text.StartsWith("find ") || text.StartsWith("تلاش ") || text.StartsWith("खोजो "))
             {
                 var query = text[(text.IndexOf(' ') + 1)..].Trim();
@@ -293,11 +302,11 @@ public partial class MainWindow : Window
                 var result = new DataTable().Compute(expression, null);
                 Respond("The result is " + result); return;
             }
-            if (text.Contains("time") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
-            if (text.Contains("date") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
+            if (Regex.IsMatch(text, @"^(what(?:\x27s| is) the time|tell me the time|current time|time|وقت|समय)[?.! ]*$")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
+            if (Regex.IsMatch(text, @"^(what(?:\x27s| is) the date|today(?:\x27s)? date|date|تاریخ|तारीख)[?.! ]*$")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
             if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
             if (text is "hi" or "hello" or "hey" or "سلام" or "नमस्ते") { Respond("Hello, friend. I'm listening."); return; }
-            if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
+            if (IsActionRequest(text) && (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند करो") || text.Contains("बंद करो") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट")))
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
                 var confirm = System.Windows.MessageBox.Show("Do you want to " + (restart ? "restart" : "shut down") + " Windows? Unsaved work may be lost.", "Confirm system action", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
@@ -324,59 +333,72 @@ public partial class MainWindow : Window
 
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("Please wait for the current answer.", false); return; }
+        if (chatPending) { Respond("I'm answering your previous request. Please try again.", false); return; }
         chatPending = true;
         try
         {
-            LocalAiModuleText.Text = "◌  Local AI • checking";
             CoreState.Text = "MADI AI • THINKING";
-            Respond("Checking local AI model...", false);
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
-            using var tagsResponse = await client.GetAsync("http://127.0.0.1:11434/api/tags");
-            tagsResponse.EnsureSuccessStatusCode();
-            using var tags = JsonDocument.Parse(await tagsResponse.Content.ReadAsStringAsync());
-            var models = tags.RootElement.GetProperty("models").EnumerateArray()
-                .Select(m => m.GetProperty("name").GetString()).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
-            if (models.Count == 0)
+            LocalAiModuleText.Text = "◌  Local AI • thinking";
+            // Cache installed model discovery to avoid querying the Ollama registry on every turn.
+            if (cachedAiModel == null || DateTime.UtcNow - modelCheckedAt > TimeSpan.FromMinutes(3))
+            {
+                using var tagsResponse = await aiHttp.GetAsync("api/tags");
+                tagsResponse.EnsureSuccessStatusCode();
+                using var tags = JsonDocument.Parse(await tagsResponse.Content.ReadAsStringAsync());
+                var models = tags.RootElement.GetProperty("models").EnumerateArray()
+                    .Select(m => m.GetProperty("name").GetString())
+                    .Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
+                cachedAiModel = models.FirstOrDefault(m => m!.Contains("qwen", StringComparison.OrdinalIgnoreCase))
+                    ?? models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
+                    ?? models.FirstOrDefault();
+                modelCheckedAt = DateTime.UtcNow;
+            }
+            if (cachedAiModel == null)
             {
                 LocalAiModuleText.Text = "◌  Local AI • model required";
-                Respond("Offline AI needs a language model. Open Settings and choose Enable Local AI.");
+                Respond("A local language model is not installed. Open Settings to enable local AI.");
                 return;
             }
-            var model = models.FirstOrDefault(m => m!.Contains("llama3", StringComparison.OrdinalIgnoreCase))
-                ?? models[0];
             var messages = new List<object>
             {
-                new { role = "system", content = "You are Madi AI, a helpful concise Windows desktop assistant. Respond in the user's language. Never claim to have opened applications, placed trades, sent messages, or changed files unless an action was actually performed. Be clear when a capability is unavailable. Keep spoken replies brief." }
+                new { role = "system", content = "You are Madi AI, a helpful natural Windows assistant. Answer the user's question directly in their language, including Urdu, Roman Urdu, Hindi or English. Be conversational and accurate. Never claim to have completed a PC action unless the application actually did it. Keep voice-friendly replies brief unless the user asks for details." }
             };
             foreach (var entry in chatHistory.TakeLast(8))
                 messages.Add(new { role = entry.Role, content = entry.Content });
             messages.Add(new { role = "user", content = question });
-            var payload = JsonSerializer.Serialize(new { model, stream = false, messages, options = new { num_predict = 180 } });
+            var payload = JsonSerializer.Serialize(new
+            {
+                model = cachedAiModel,
+                stream = false,
+                keep_alive = "30m",
+                messages,
+                options = new { num_predict = 140, temperature = 0.5 }
+            });
             using var request = new StringContent(payload, Encoding.UTF8, "application/json");
-            using var response = await client.PostAsync("http://127.0.0.1:11434/api/chat", request);
+            using var response = await aiHttp.PostAsync("api/chat", request);
             response.EnsureSuccessStatusCode();
             using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
-            if (string.IsNullOrWhiteSpace(answer)) { Respond("The local model returned an empty answer."); return; }
+            if (string.IsNullOrWhiteSpace(answer)) { Respond("The language model returned no answer."); return; }
             LocalAiModuleText.Text = "●  Local AI • ready";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
             if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
             Respond(answer);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            LocalAiModuleText.Text = "◌  Local AI • not running";
-            Respond("Offline AI is not ready. Open Settings to install a free local model. App-opening commands still work.");
+            cachedAiModel = null;
+            LocalAiModuleText.Text = "◌  Local AI • disconnected";
+            Respond("The local AI service isn't responding: " + ex.Message);
         }
         catch (TaskCanceledException)
         {
-            Respond("The local AI response timed out. Please try again.");
+            Respond("The model took too long to answer. Try a smaller model in Settings.");
         }
         catch (Exception ex)
         {
-            Respond("Local AI chat error: " + ex.Message);
+            Respond("AI conversation error: " + ex.Message);
         }
         finally { chatPending = false; CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE"; }
     }
