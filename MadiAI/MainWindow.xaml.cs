@@ -234,15 +234,15 @@ public partial class MainWindow : Window
             for (int attempt = 0; attempt < 6; attempt++)
             {
                 await Task.Delay(450);
-                if ((await GetInstalledModelsAsync()).Count > 0) break;
+                if ((await GetInstalledModelsAsync(forceRefresh: true)).Count > 0) break;
             }
         }
         catch (Exception) { /* Ollama is optional; Settings reports unavailability. */ }
     }
 
-    private async Task<List<string>> GetInstalledModelsAsync()
+    private async Task<List<string>> GetInstalledModelsAsync(bool forceRefresh = false)
     {
-        if ((DateTime.UtcNow - modelsCachedAt).TotalSeconds < (cachedModels.Count > 0 ? 30 : 5))
+        if (!forceRefresh && (DateTime.UtcNow - modelsCachedAt).TotalSeconds < (cachedModels.Count > 0 ? 30 : 5))
             return cachedModels.ToList();
         try
         {
