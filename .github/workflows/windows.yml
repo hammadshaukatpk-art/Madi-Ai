@@ -186,9 +186,9 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v0.2.9-development-preview
+          tag_name: v0.3.0-development-preview
           target_commitish: ${{ github.event.pull_request.head.sha }}
-          name: Madi AI development preview - voice startup, command routing and actual UI screenshot (not final)
+          name: Madi AI development preview - reference dashboard and low-latency local command routing (not final)
           prerelease: true
           files: |
             setup/Madi-AI-Setup.exe
