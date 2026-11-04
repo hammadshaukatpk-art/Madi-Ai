@@ -981,12 +981,13 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() == true) { try { Open(dialog.FileName); Respond("Opening your selected file."); } catch (Exception ex) { Respond(ex.Message); } }
     }
     private void Tasks_Click(object sender, RoutedEventArgs e) => Respond("Custom task routines are planned, but not enabled yet.");
-    private void Settings_Click(object sender, RoutedEventArgs e)
+    private async void Settings_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
+        var installedModels = await GetInstalledModelsAsync();
         var window = new Window
         {
-            Title = "Madi AI • Settings", Width = 570, Height = 555,
+            Title = "Madi AI • Settings", Width = 600, Height = 690,
             WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(5, 18, 39)),
             Foreground = System.Windows.Media.Brushes.White
@@ -1066,48 +1067,56 @@ public partial class MainWindow : Window
             finally { micTest.IsEnabled = true; micTest.Content = "TEST MICROPHONE (3 SECONDS)"; }
         };
         panel.Children.Add(micTest);
-        var local = new System.Windows.Controls.Button { Content = "ENABLE FREE OFFLINE AI (OLLAMA)", Height = 43, Margin = new Thickness(0, 10, 0, 0),
+        panel.Children.Add(new TextBlock { Text = "Installed Ollama models (no download required)", Margin = new Thickness(0, 12, 0, 6), FontSize = 14 });
+        var modelPicker = new System.Windows.Controls.ComboBox
+        {
+            Height = 36, ItemsSource = installedModels,
+            Foreground = System.Windows.Media.Brushes.White,
+            Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(8, 28, 53))
+        };
+        if (TryFindResource("DarkLanguageCombo") is Style modelStyle) modelPicker.Style = modelStyle;
+        modelPicker.SelectedItem = installedModels.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+            ?? installedModels.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+            ?? installedModels.FirstOrDefault();
+        modelPicker.SelectionChanged += (_, _) =>
+        {
+            if (modelPicker.SelectedItem is not string name) return;
+            selectedModel = name;
+            try { File.WriteAllText(SelectedModelFile, name); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            LocalAiModuleText.Text = "●  Local AI • " + name;
+        };
+        panel.Children.Add(modelPicker);
+        panel.Children.Add(new TextBlock { Text = installedModels.Count > 0
+            ? "Model detected. Select it above; there is no need to download it again."
+            : "No local model detected. Ensure Ollama is running on port 11434.",
+            Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
+        var local = new System.Windows.Controls.Button { Content = "CHECK INSTALLED OLLAMA MODELS", Height = 43, Margin = new Thickness(0, 10, 0, 0),
             Foreground = System.Windows.Media.Brushes.White,
             Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(75, 40, 134)) };
         local.Click += async (_, _) =>
         {
-            if (installingLocalAi) return;
-            var ollama = FindOllama();
-            if (ollama == null)
+            var detected = await GetInstalledModelsAsync();
+            if (detected.Count > 0)
             {
-                Respond("Ollama is not installed. Opening the official Windows installer page.", false);
+                modelPicker.ItemsSource = detected;
+                modelPicker.SelectedItem = detected.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+                    ?? detected.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+                    ?? detected[0];
+                Respond("Ollama is ready. Installed model: " + modelPicker.SelectedItem + ". No download needed.", false);
+                return;
+            }
+            if (FindOllama() == null)
+            {
+                Respond("Ollama is not installed. Opening its official installer page.", false);
                 Open("https://ollama.com/download/windows");
                 return;
             }
-            if (System.Windows.MessageBox.Show(
-                "Download the free llama3.2:1b model? It uses about 1.3 GB of disk space and requires internet for the initial download. No paid API key is needed.",
-                "Enable Madi AI Offline Chat", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            installingLocalAi = true;
-            local.IsEnabled = false;
-            local.Content = "DOWNLOADING LOCAL MODEL — PLEASE WAIT";
-            try
-            {
-                var result = await Task.Run(async () =>
-                {
-                    using var proc = new Process { StartInfo = new ProcessStartInfo(ollama)
-                    {
-                        UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
-                        RedirectStandardError = true, Arguments = "pull llama3.2:1b"
-                    }};
-                    proc.Start();
-                    var output = proc.StandardOutput.ReadToEndAsync();
-                    var error = proc.StandardError.ReadToEndAsync();
-                    await proc.WaitForExitAsync();
-                    return (proc.ExitCode, StdOut: await output, StdErr: await error);
-                });
-                if (result.ExitCode != 0) throw new InvalidOperationException(result.StdErr.Length > 250 ? result.StdErr[..250] : result.StdErr);
-                Respond("Local AI model installed. You can now ask Madi AI general questions.");
-            }
-            catch (Exception ex) { Respond("Unable to install local model: " + ex.Message); }
-            finally { installingLocalAi = false; local.IsEnabled = true; local.Content = "ENABLE FREE OFFLINE AI (OLLAMA)"; }
+            Respond("Ollama is installed but its local service or models are unavailable. Start Ollama, then use 'ollama list' to verify models. Nothing was downloaded.", false);
         };
         panel.Children.Add(local);
-        window.Content = panel;
+        window.Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         window.ShowDialog();
     }
 }
