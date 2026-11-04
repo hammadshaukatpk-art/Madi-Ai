@@ -529,6 +529,11 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text is "mt5 price" or "mt5 quote" or "mt5 chart status" or "mt5 current chart")
+        {
+            Respond(Mt5Bridge.Describe("price"), false);
+            return true;
+        }
         var typeMatch = Regex.Match(raw.Trim(),
             @"(?is)^type (.{1,1000}?) into ([a-z0-9 ._-]{2,60})$");
         if (typeMatch.Success)
