@@ -28,7 +28,7 @@ public partial class MainWindow : Window
 {
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
-    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
+    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(9) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private readonly HttpClient aiHttp = new() { BaseAddress = new Uri("http://127.0.0.1:11434/"), Timeout = TimeSpan.FromSeconds(65) };
@@ -65,6 +65,30 @@ public partial class MainWindow : Window
     private bool chatPending;
     private bool installingLocalAi;
     private readonly List<(string Role, string Content)> chatHistory = new();
+    private string ChatHistoryFile => Path.Combine(profile, "chat-history.json");
+    private sealed record ChatTurn(string Role, string Content);
+    private void LoadConversation()
+    {
+        try
+        {
+            if (!File.Exists(ChatHistoryFile)) return;
+            var entries = JsonSerializer.Deserialize<List<ChatTurn>>(File.ReadAllText(ChatHistoryFile));
+            if (entries == null) return;
+            foreach (var turn in entries.TakeLast(24))
+                if ((turn.Role == "user" || turn.Role == "assistant") && !string.IsNullOrWhiteSpace(turn.Content))
+                    chatHistory.Add((turn.Role, turn.Content));
+        }
+        catch (Exception) { /* Damaged history must not block startup. */ }
+    }
+    private void SaveConversation()
+    {
+        try
+        {
+            var entries = chatHistory.TakeLast(24).Select(x => new ChatTurn(x.Role, x.Content)).ToList();
+            File.WriteAllText(ChatHistoryFile, JsonSerializer.Serialize(entries));
+        }
+        catch (Exception) { /* Conversation continues if storage fails. */ }
+    }
     private CancellationTokenSource? voiceSetupCancellation;
     private long oldIdle, oldKernel, oldUser;
 
@@ -74,6 +98,7 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        LoadConversation();
         try
         {
             var settingsFile = Path.Combine(profile, "settings.json");
@@ -363,7 +388,7 @@ public partial class MainWindow : Window
             {
                 new { role = "system", content = "You are Madi AI, a helpful natural Windows assistant. Answer the user's question directly in their language, including Urdu, Roman Urdu, Hindi or English. Be conversational and accurate. Never claim to have completed a PC action unless the application actually did it. Keep voice-friendly replies brief unless the user asks for details." }
             };
-            foreach (var entry in chatHistory.TakeLast(8))
+            foreach (var entry in chatHistory.TakeLast(16))
                 messages.Add(new { role = entry.Role, content = entry.Content });
             messages.Add(new { role = "user", content = question });
             var payload = JsonSerializer.Serialize(new
@@ -383,7 +408,8 @@ public partial class MainWindow : Window
             LocalAiModuleText.Text = "●  Local AI • ready";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
-            if (chatHistory.Count > 16) chatHistory.RemoveRange(0, chatHistory.Count - 16);
+            if (chatHistory.Count > 24) chatHistory.RemoveRange(0, chatHistory.Count - 24);
+            SaveConversation();
             Respond(answer);
         }
         catch (HttpRequestException ex)
@@ -814,7 +840,7 @@ public partial class MainWindow : Window
             else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
             if (firstSpeech != DateTime.MinValue &&
                 (now - firstSpeech).TotalMilliseconds >= 150 &&
-                (now - lastSpeech).TotalMilliseconds >= 550)
+                (now - lastSpeech).TotalMilliseconds >= 700)
             {
                 if (Interlocked.Exchange(ref stopRequested, 1) == 0)
                     Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
@@ -843,7 +869,7 @@ public partial class MainWindow : Window
                     processingAudio = false;
                     TryDelete(file);
                     // Don't record the assistant's own spoken response.
-                    var deadline = DateTime.UtcNow.AddSeconds(10);
+                    var deadline = DateTime.UtcNow.AddSeconds(2);
                     while (listening && (chatPending || speaker.State == SynthesizerState.Speaking) && DateTime.UtcNow < deadline)
                         await Task.Delay(100);
                     if (listening) StartRecording();
@@ -874,6 +900,7 @@ public partial class MainWindow : Window
             StatusText.Text = "Heard: " + recognized;
             Execute(recognized);
         }
+        else StatusText.Text = "I could not understand that. Please try again.";
         ListenStatus.Text = listening ? "● Listening" : "● Standby";
         CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
