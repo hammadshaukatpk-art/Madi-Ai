@@ -392,9 +392,75 @@ public partial class MainWindow : Window
                 else Respond("Cancelled.");
                 return;
             }
-            _ = AskLocalAiAsync(raw);
+            _ = RouteUnknownAsync(raw, text);
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
+    }
+
+    private async Task RouteUnknownAsync(string original, string normalized)
+    {
+        // Ordinary conversation goes directly to streaming chat. Only an
+        // apparent command is classified, so chit-chat stays responsive.
+        var looksLikeCommand = Regex.IsMatch(normalized,
+            @"^(?:please |can you |could you |would you |madi |open |launch |start |show |bring |switch |focus |search |find |kholo |khol do |کھولو |खोलो )") ||
+            normalized.Contains(" kholo") || normalized.Contains(" खोलो") || normalized.Contains(" کھولو");
+        if (looksLikeCommand && !chatPending)
+        {
+            try
+            {
+                var models = await GetInstalledModelsAsync();
+                if (models.Count > 0)
+                {
+                    var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+                        ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
+                        ?? models[0];
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(22));
+                    var plan = await LocalActionPlanner.PlanAsync(http, model, original, timeout.Token);
+                    if (plan != null && TryPerformPlannedAction(plan)) return;
+                }
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException or JsonException)
+            {
+                // Local command planner is optional; regular chat remains available.
+            }
+        }
+        await AskLocalAiAsync(original);
+    }
+
+    private bool TryPerformPlannedAction(LocalActionPlanner.ActionPlan plan)
+    {
+        switch (plan.Action)
+        {
+            case "open_google": OpenGoogleWithProfile("open google"); return true;
+            case "open_youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", "open youtube"); return true;
+            case "open_downloads":
+                Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
+                Respond("Opening Downloads.", false); return true;
+            case "open_documents": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)); Respond("Opening Documents.", false); return true;
+            case "open_desktop": Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)); Respond("Opening Desktop.", false); return true;
+            case "open_pictures": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)); Respond("Opening Pictures.", false); return true;
+            case "open_calculator": Open("calc.exe"); Respond("Opening Calculator.", false); return true;
+            case "open_notepad": Open("notepad.exe"); Respond("Opening Notepad.", false); return true;
+            case "open_settings": Open("ms-settings:"); Respond("Opening Windows Settings.", false); return true;
+            case "open_explorer": Open("explorer.exe"); Respond("Opening File Explorer.", false); return true;
+            case "open_mt5":
+                if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
+                    Respond("Opening MetaTrader 5.", false);
+                else Respond("MT5 was not found in Start Menu. Use the application picker to locate terminal64.exe.", false);
+                return true;
+            case "mt5_status": return TryHandleExtendedWindowsCommand("mt5 status", "mt5 status");
+            case "search_web" when !string.IsNullOrWhiteSpace(plan.Argument):
+                Open("https://www.google.com/search?q=" + Uri.EscapeDataString(plan.Argument));
+                Respond("Searching the web for " + plan.Argument, false); return true;
+            case "search_youtube" when !string.IsNullOrWhiteSpace(plan.Argument):
+                Open("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(plan.Argument));
+                Respond("Searching YouTube for " + plan.Argument, false); return true;
+            case "open_app" when !string.IsNullOrWhiteSpace(plan.Argument):
+                LaunchInstalledApp(plan.Argument); return true;
+            case "focus_app" when !string.IsNullOrWhiteSpace(plan.Argument):
+                return TryHandleExtendedWindowsCommand("focus " + plan.Argument, "focus " + plan.Argument);
+            default: return false;
+        }
     }
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
