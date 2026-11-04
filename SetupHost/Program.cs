@@ -271,6 +271,17 @@ public sealed class SetupWindow : Window
    if (key == null || !(key.GetValue("UninstallString")?.ToString()?.Contains("/uninstall") ?? false))
     throw new IOException("Control Panel uninstall registration invalid.");
   }
+  // Reproduce the user's locked-file uninstall failure: it must preserve the
+  // Control Panel entry and allow RETRY after the lock is released.
+  using (var heldFile = new FileStream(Path.Combine(target,"MadiAI.exe"),FileMode.Open,FileAccess.Read,FileShare.Read))
+  {
+   bool blocked=false;
+   try { Remove(); }
+   catch (IOException) { blocked=true; }
+   if (!blocked) throw new IOException("Uninstall incorrectly succeeded while the application binary was locked.");
+   using var registered=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
+   if (registered==null) throw new IOException("Failed uninstall removed Control Panel entry before deleting application.");
+  }
   Remove();
   if (Directory.Exists(target)) throw new IOException("Uninstall did not remove application folder.");
   using var leftover=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI");
