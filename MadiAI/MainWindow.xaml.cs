@@ -1356,8 +1356,17 @@ public partial class MainWindow : Window
         if (named.Success)
         {
             var n = named.Groups[1].Value;
-            selected = profiles.FirstOrDefault(p => p.Folder.Equals("Profile " + n, StringComparison.OrdinalIgnoreCase))
+            // Numbering matches the profile choices displayed to the user.
+            if (int.TryParse(n, out var profileNumber) && profileNumber >= 1 && profileNumber <= profiles.Count)
+                selected = profiles[profileNumber - 1];
+            selected ??= profiles.FirstOrDefault(p => p.Folder.Equals("Profile " + n, StringComparison.OrdinalIgnoreCase))
                 ?? profiles.FirstOrDefault(p => p.Name.Equals(n, StringComparison.OrdinalIgnoreCase));
+        }
+        if (selected == null)
+        {
+            var preferred = GetPreferredChromeFolder(service);
+            if (!string.IsNullOrWhiteSpace(preferred))
+                selected = profiles.FirstOrDefault(p => p.Folder.Equals(preferred, StringComparison.OrdinalIgnoreCase));
         }
         if (selected == null && profiles.Count > 1)
         {
@@ -1373,6 +1382,7 @@ public partial class MainWindow : Window
         if (selected != null) start.ArgumentList.Add("--profile-directory=" + selected.Folder);
         start.ArgumentList.Add(url);
         Process.Start(start);
+        if (selected != null) SavePreferredChromeFolder(service, selected.Folder);
         Respond(selected == null ? "Opening " + service + " in Chrome." : "Opening " + service + " in Chrome profile " + selected.Name + ".");
     }
     private bool TrySelectPendingChromeProfile(string command)
