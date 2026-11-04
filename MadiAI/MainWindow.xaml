@@ -195,6 +195,7 @@
  <Border Grid.Row="2" Margin="240,0,12,0" Background="#D9081930" BorderBrush="#1E8BCE" BorderThickness="1" CornerRadius="20">
   <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/><ColumnDefinition Width="88"/></Grid.ColumnDefinitions>
    <TextBox x:Name="CommandBox" Height="44" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="15" Padding="14,8" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Speak or type a command in English, Urdu, or Hindi"/>
+   <TextBlock x:Name="CommandHint" Text="Speak or type a command... (English / Urdu / Hindi)" Foreground="#99BEDA" FontSize="14" VerticalAlignment="Center" Margin="16,0,0,0" IsHitTestVisible="False"/>
    <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="20" FontWeight="Bold" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="7,0" Click="Voice_Click"/>
    <Button Grid.Column="2" Content="➤" FontSize="24" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
   </Grid>
