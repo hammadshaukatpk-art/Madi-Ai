@@ -1203,20 +1203,22 @@ public partial class MainWindow : Window
     {
         if (chatPending)
         {
-            if (queuedQuestions.Count < 3)
-            {
-                queuedQuestions.Enqueue(question);
-                StatusText.Text = "Message queued for the next reply.";
-            }
-            else Respond("Please wait for the current reply.", false);
+            // A new user request supersedes an old slow reply, rather than
+            // forcing the user to wait behind several minutes of generation.
+            queuedQuestions.Clear();
+            queuedQuestions.Enqueue(question);
+            userCancelledChat = true;
+            currentChatCancellation?.Cancel();
+            StopSpeech();
+            StatusText.Text = "Switching to your latest request...";
             return;
         }
         chatPending = true;
         userCancelledChat = false;
-        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
         {
-            CoreState.Text = "MADI AI • THINKING";
+            CoreState.Text = "MADI AI • RESPONDING";
             var models = await GetInstalledModelsAsync();
             if (models.Count == 0)
             {
@@ -1239,11 +1241,12 @@ public partial class MainWindow : Window
             {
                 new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information. The user can manage memory with remember that, show memory, forget, and clear memory. " + memory.BuildPrompt() }
             };
-            foreach (var entry in chatHistory.TakeLast(12))
-                messages.Add(new { role = entry.Role, content = entry.Content });
+            foreach (var entry in chatHistory.TakeLast(6))
+                messages.Add(new { role = entry.Role,
+                    content = entry.Content.Length > 650 ? entry.Content[^650..] : entry.Content });
             messages.Add(new { role = "user", content = question });
-            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 160, num_ctx = 2048 }, keep_alive = "30m" });
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 120, num_ctx = 1536 }, keep_alive = "30m" });
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
             using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:11434/api/chat")
             { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentChatCancellation.Token);
@@ -1255,8 +1258,18 @@ public partial class MainWindow : Window
             ConversationText.AppendText("Madi: ");
             var lastUiUpdate = DateTime.UtcNow;
             string? line;
-            while ((line = await reader.ReadLineAsync(currentChatCancellation.Token)) != null)
+            var firstTokenDeadline = DateTime.UtcNow.AddSeconds(16);
+            while (true)
             {
+                var read = reader.ReadLineAsync(currentChatCancellation.Token).AsTask();
+                if (answer.Length == 0)
+                {
+                    var remaining = firstTokenDeadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero) throw new TimeoutException("Local model did not begin replying within 16 seconds.");
+                    line = await read.WaitAsync(remaining, currentChatCancellation.Token);
+                }
+                else line = await read;
+                if (line == null) break;
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 using var chunk = JsonDocument.Parse(line);
                 if (chunk.RootElement.TryGetProperty("error", out var error))
@@ -1311,6 +1324,12 @@ public partial class MainWindow : Window
                     SpeakRemainder(remainder);
                 }
             }
+        }
+        catch (TimeoutException)
+        {
+            currentChatCancellation?.Cancel();
+            LocalAiModuleText.Text = "◌  Local AI • slow response";
+            Respond("The local model did not respond promptly. Please try a shorter question or choose a faster model.", false);
         }
         catch (HttpRequestException)
         {
