@@ -69,6 +69,30 @@ internal static class Mt5Bridge
         }
     }
 
+    internal static string RequestChart(string symbol, string timeframe)
+    {
+        if (Read(out var diagnostic) == null) return diagnostic;
+        symbol = symbol.Trim().ToUpperInvariant();
+        timeframe = timeframe.Trim().ToUpperInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(symbol, @"^[A-Z0-9._-]{2,20}$"))
+            return "Invalid MT5 symbol. Example: EURUSD or XAUUSD.";
+        if (!new[] { "M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1", "MN1" }.Contains(timeframe))
+            return "Unsupported MT5 timeframe. Use M1, M5, M15, M30, H1, H4, D1, W1 or MN1.";
+        try
+        {
+            var folder = Path.GetDirectoryName(StatusPath)!;
+            var command = Path.Combine(folder, "command.txt");
+            var temp = Path.Combine(folder, "command.tmp");
+            File.WriteAllText(temp, "chart|" + symbol + "|" + timeframe + Environment.NewLine);
+            File.Move(temp, command, true);
+            return $"Requested MT5 chart {symbol} on {timeframe}. The connected terminal will process the command; this is not yet confirmation that the chart changed.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return "Could not send MT5 chart request: " + ex.Message;
+        }
+    }
+
     internal static string Describe(string topic)
     {
         var snapshot = Read(out var diagnostic);
