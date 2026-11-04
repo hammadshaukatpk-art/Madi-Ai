@@ -1,4 +1,4 @@
-<Window x:Class="MadiAI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Madi AI" Width="1480" Height="860" MinWidth="960" MinHeight="620" WindowStartupLocation="CenterScreen" Background="#020914" Foreground="#E5F6FF" FontFamily="Segoe UI" FontSize="16" WindowStyle="None" ResizeMode="CanResize">
+<Window x:Class="MadiAI.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" Title="Madi AI" Width="1530" Height="900" MinWidth="1230" MinHeight="740" WindowStartupLocation="CenterScreen" Background="#020914" Foreground="#E5F6FF" FontFamily="Segoe UI" FontSize="16" WindowStyle="None" ResizeMode="CanResize">
 <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/></shell:WindowChrome.WindowChrome>
 <Window.Resources>
  <SolidColorBrush x:Key="Panel" Color="#071629"/>
@@ -40,7 +40,7 @@
 
 <Grid>
  <Grid.Background><RadialGradientBrush Center=".48,.48" RadiusX=".86" RadiusY=".95"><GradientStop Color="#0A2850" Offset="0"/><GradientStop Color="#061529" Offset=".57"/><GradientStop Color="#020713" Offset="1"/></RadialGradientBrush></Grid.Background>
- <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="122"/><RowDefinition Height="26"/></Grid.RowDefinitions>
+ <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="80"/><RowDefinition Height="88"/><RowDefinition Height="26"/></Grid.RowDefinitions>
  <Border Grid.Row="0" BorderBrush="#2077AF" BorderThickness="0,0,0,1" Background="#D906172C">
   <Grid Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -64,25 +64,10 @@
    </StackPanel>
   </Grid>
  </Border>
- <Grid Grid.Row="1" Margin="12,14,12,8">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="236"/><ColumnDefinition Width="3*" MinWidth="320"/><ColumnDefinition Width="2*" MinWidth="280"/></Grid.ColumnDefinitions>
+ <Grid Grid.Row="1" Margin="12,12,12,8">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="216"/><ColumnDefinition Width="260"/><ColumnDefinition Width="*" MinWidth="315"/><ColumnDefinition Width="355"/></Grid.ColumnDefinitions>
   <Border Grid.Column="0" Background="#C8081B34" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Margin="0,0,12,0">
    <DockPanel>
-    <StackPanel DockPanel.Dock="Bottom" Margin="12,4,12,12">
-     <Border Background="#0E2848" CornerRadius="9" Padding="10">
-      <StackPanel>
-       <TextBlock Text="SYSTEM TELEMETRY" FontSize="10" Foreground="#5EDCFF" FontWeight="Bold" Margin="0,0,0,8"/>
-       <UniformGrid Columns="3">
-        <StackPanel><TextBlock Text="CPU" FontSize="10" Foreground="#8FBBD4" HorizontalAlignment="Center"/><TextBlock x:Name="CpuValue" Text="—" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
-        <StackPanel><TextBlock Text="RAM" FontSize="10" Foreground="#8FBBD4" HorizontalAlignment="Center"/><TextBlock x:Name="RamValue" Text="—" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
-        <StackPanel><TextBlock Text="DISK" FontSize="10" Foreground="#8FBBD4" HorizontalAlignment="Center"/><TextBlock x:Name="DiskValue" Text="—" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
-       </UniformGrid>
-      </StackPanel>
-     </Border>
-     <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" FontSize="11" Foreground="#65D5EE" Margin="2,12,0,4" TextWrapping="Wrap"/>
-     <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • checking" FontSize="11" Foreground="#A5BBD0" Margin="2,3,0,0" TextWrapping="Wrap"/>
-     <TextBlock x:Name="Mt5ModuleText" Text="◌  MT5 • bridge offline" FontSize="11" Foreground="#A5BBD0" Margin="2,5,0,0" TextWrapping="Wrap"/>
-    </StackPanel>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
      <StackPanel Margin="8,14,8,8">
       <TextBlock Text="CONTROL CENTER" FontSize="11" Foreground="#6EDBFF" FontWeight="Bold" Margin="14,0,0,12"/>
@@ -105,7 +90,45 @@
     </ScrollViewer>
    </DockPanel>
   </Border>
-  <Grid Grid.Column="1" Margin="0,0,12,0">
+  <StackPanel Grid.Column="1" Margin="0,0,12,0">
+   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,12">
+    <StackPanel>
+     <TextBlock Text="●  SYSTEM STATUS" FontWeight="Bold" FontSize="14" Foreground="#DBF7FF" Margin="0,0,0,12"/>
+     <UniformGrid Columns="3">
+      <StackPanel Margin="3" HorizontalAlignment="Center">
+       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#19CFFF" BorderThickness="4" Background="#092747">
+        <StackPanel VerticalAlignment="Center"><TextBlock Text="CPU" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="CpuValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
+       </Border>
+      </StackPanel>
+      <StackPanel Margin="3" HorizontalAlignment="Center">
+       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#2988EF" BorderThickness="4" Background="#092747">
+        <StackPanel VerticalAlignment="Center"><TextBlock Text="RAM" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="RamValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
+       </Border>
+      </StackPanel>
+      <StackPanel Margin="3" HorizontalAlignment="Center">
+       <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#8B55F4" BorderThickness="4" Background="#092747">
+        <StackPanel VerticalAlignment="Center"><TextBlock Text="DISK" FontSize="10" Foreground="#83B8D9" HorizontalAlignment="Center"/><TextBlock x:Name="DiskValue" Text="—" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/></StackPanel>
+       </Border>
+      </StackPanel>
+     </UniformGrid>
+    </StackPanel>
+   </Border>
+   <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12">
+    <StackPanel>
+     <TextBlock Text="✦  ACTIVE MODULES" FontSize="15" FontWeight="Bold" Foreground="#DFF8FF" Margin="0,0,0,12"/>
+     <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" FontSize="12" Foreground="#8FD9EF" Margin="0,4" TextWrapping="Wrap"/>
+     <Separator Background="#194269" Margin="0,6"/>
+     <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • checking" FontSize="12" Foreground="#A5D2F0" Margin="0,4" TextWrapping="Wrap"/>
+     <Separator Background="#194269" Margin="0,6"/>
+     <TextBlock x:Name="Mt5ModuleText" Text="◌  MT5 • bridge offline" FontSize="12" Foreground="#A5D2F0" Margin="0,4" TextWrapping="Wrap"/>
+     <Separator Background="#194269" Margin="0,6"/>
+     <TextBlock Text="◈  Windows app control" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
+     <TextBlock Text="◎  Web &amp; research" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
+     <TextBlock Text="▱  Local files &amp; routines" FontSize="12" Foreground="#B5D5E8" Margin="0,6"/>
+    </StackPanel>
+   </Border>
+  </StackPanel>
+  <Grid Grid.Column="2" Margin="0,0,12,0">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel HorizontalAlignment="Center" Margin="0,6,0,0">
     <TextBlock Text="MADI  /  INTELLIGENCE CORE" FontSize="19" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center"/>
@@ -133,44 +156,75 @@
     <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="13" Foreground="#64F3AE" HorizontalAlignment="Center" Margin="0,5,0,0"/>
    </StackPanel>
   </Grid>
-  <Border Grid.Column="2" Background="#D6081A32" BorderBrush="#2276B0" BorderThickness="1" CornerRadius="15">
-   <Grid Margin="15"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <StackPanel Margin="0,0,0,12">
-     <TextBlock Text="✦  CONVERSATION" FontSize="16" FontWeight="Bold" Foreground="#E8F9FF"/>
-     <TextBlock Text="LOCAL INTELLIGENCE  /  CONTEXT-AWARE" FontSize="10" Foreground="#69C8F0" Margin="0,5,0,0"/>
+  <Grid Grid.Column="3">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <Border Background="#D6081A32" BorderBrush="#2276B0" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,12">
+    <StackPanel>
+     <TextBlock Text="◈  QUICK ACTIONS" FontSize="15" FontWeight="Bold" Foreground="#EAF9FF" Margin="0,0,0,10"/>
+     <UniformGrid Columns="3" Rows="2">
+      <Button Style="{StaticResource TileButton}" Content="OPEN APP" Height="55" Click="Apps_Click"/>
+      <Button Style="{StaticResource TileButton}" Content="WEB SEARCH" Height="55" Click="Web_Click"/>
+      <Button Style="{StaticResource TileButton}" Content="CALCULATE" Height="55" Click="Calc_Click"/>
+      <Button Style="{StaticResource TileButton}" Content="OPEN FILE" Height="55" Click="Files_Click"/>
+      <Button Style="{StaticResource TileButton}" Content="SCREENSHOT" Height="55" Click="Screenshot_Click"/>
+      <Button Style="{StaticResource TileButton}" Content="VOICE" Height="55" Click="Voice_Click"/>
+     </UniformGrid>
     </StackPanel>
-    <TextBox x:Name="ConversationText" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="14" FontFamily="Segoe UI" Padding="12" Foreground="#D6F1FF" Background="#090F2138" BorderBrush="#20557C" BorderThickness="1" AcceptsReturn="True" SelectionBrush="#2A77A4"/>
-    <StackPanel Grid.Row="2" Margin="0,12,0,0">
-     <TextBlock Text="ASSISTANT STATUS" Foreground="#70D8F8" FontSize="11" FontWeight="Bold"/>
-     <TextBlock x:Name="StatusText" Text="Ready for your command" FontSize="12" Foreground="#B5D4E8" TextWrapping="Wrap" Margin="0,7,0,0" MaxHeight="58"/>
-    </StackPanel>
-   </Grid>
-  </Border>
+   </Border>
+   <TabControl x:Name="RightPanelTabs" Grid.Row="1" SelectedIndex="0" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
+    <TabItem Header="CAPABILITIES" Background="#092342" Foreground="#EAF9FF">
+     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+      <StackPanel>
+       <TextBlock Text="✦  MY CAPABILITIES" FontSize="16" FontWeight="Bold" Foreground="#9DE6FF" Margin="0,6,0,12"/>
+       <TextBlock Text="◈  Windows controls and app launching" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◈  Local AI chat and saved memory" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◈  Browser and web searches" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◈  Local files and safe routines" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◈  English, Urdu and Hindi speech" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◈  MT5 read-only account and chart bridge" FontSize="12" Margin="0,7" TextWrapping="Wrap"/>
+       <TextBlock Text="◌  Some integrations require setup and verification" FontSize="11" Foreground="#9CB9D0" TextWrapping="Wrap" Margin="0,16,0,0"/>
+      </StackPanel>
+     </ScrollViewer>
+    </TabItem>
+    <TabItem Header="CONVERSATION" Background="#092342" Foreground="#EAF9FF">
+     <Grid Margin="8">
+      <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <TextBox x:Name="ConversationText" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="13" Padding="9" Foreground="#D6F1FF" Background="#090F2138" BorderBrush="#20557C" BorderThickness="1" AcceptsReturn="True"/>
+      <TextBlock x:Name="StatusText" Grid.Row="1" Text="Ready for your command" FontSize="11" Foreground="#8ED6F2" TextWrapping="Wrap" Margin="0,9,0,0" MaxHeight="56"/>
+     </Grid>
+    </TabItem>
+   </TabControl>
+  </Grid>
  </Grid>
- <Border Grid.Row="2" Margin="12,0,12,0" Background="#D9081930" BorderBrush="#1E659C" BorderThickness="1" CornerRadius="14">
-  <Grid Margin="14,10"><Grid.RowDefinitions><RowDefinition Height="44"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="68"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-    <TextBox x:Name="CommandBox" Height="42" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="14" Padding="12,7" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type a message or a command"/>
-    <Button x:Name="MicButton" Grid.Column="1" Content="MIC" FontSize="12" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="8,0" Click="Voice_Click"/>
-    <Button Grid.Column="2" Content="SEND  ➤" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
-   </Grid>
-   <UniformGrid Grid.Row="1" Columns="5" Margin="0,8,0,0">
-    <Button Style="{StaticResource TileButton}" Content="BROWSER" Click="Browser_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="YOUTUBE" Click="Youtube_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="WHATSAPP" Click="Whatsapp_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="MT5" Click="Mt5_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="ALL APPS" Click="Apps_Click"/>
-   </UniformGrid>
+ <Border Grid.Row="2" Margin="240,0,12,0" Background="#D9081930" BorderBrush="#1E8BCE" BorderThickness="1" CornerRadius="20">
+  <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/><ColumnDefinition Width="88"/></Grid.ColumnDefinitions>
+   <TextBox x:Name="CommandBox" Height="44" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="15" Padding="14,8" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Say a command or type a message"/>
+   <Button x:Name="MicButton" Grid.Column="1" Content="MIC" FontSize="14" FontWeight="Bold" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="7,0" Click="Voice_Click"/>
+   <Button Grid.Column="2" Content="SEND  ➤" FontSize="12" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
   </Grid>
  </Border>
- <Grid Grid.Row="3" Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+ <Border Grid.Row="3" Margin="240,5,12,5" Background="#C9081930" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Padding="6">
+  <UniformGrid Columns="10">
+   <Button Style="{StaticResource TileButton}" Content="Browser" Click="Browser_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="YouTube" Click="Youtube_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="WhatsApp" Click="Whatsapp_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="eBay" Click="Ebay_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="AliExpress" Click="Ali_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="MT5" Click="Mt5_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="Canva" Click="Canva_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="Office" Click="Office_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="ChatGPT" Click="ChatGpt_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="+ Apps" Click="Apps_Click"/>
+  </UniformGrid>
+ </Border>
+ <Grid Grid.Row="4" Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
   <TextBlock Text="MADI AI  •  SECURE LOCAL DESKTOP" Foreground="#547E9E" FontSize="10" VerticalAlignment="Center"/>
   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
    <TextBlock x:Name="DateText" Text="" FontSize="10" Foreground="#7CB5D5" Margin="0,0,14,0"/>
    <TextBlock x:Name="ClockText" Text="--:--" FontSize="11" Foreground="#A9DFFF"/>
   </StackPanel>
  </Grid>
- <Grid x:Name="GateOverlay" Grid.RowSpan="4" Background="#F5030A18">
+ <Grid x:Name="GateOverlay" Grid.RowSpan="5" Background="#F5030A18">
   <Border Width="520" Height="355" Background="#0A1B34" BorderBrush="#23C9FF" BorderThickness="2" CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center">
    <StackPanel Margin="34,22">
     <Image Source="/madi.png" Width="84" Height="84" HorizontalAlignment="Center"/>
