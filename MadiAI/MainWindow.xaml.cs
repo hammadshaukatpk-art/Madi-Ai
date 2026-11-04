@@ -529,6 +529,11 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text is "connect mt5" or "connect metatrader" or "install mt5 bridge" or "setup mt5 bridge")
+        {
+            _ = InstallMt5BridgeAsync();
+            return true;
+        }
         if (text is "mt5 balance" or "metatrader balance" or "mt5 equity" or "mt5 account" or
             "mt5 positions" or "mt5 trades" or "mt5 orders" or "show mt5 positions" or
             "check mt5 balance" or "check mt5 positions")
@@ -624,6 +629,16 @@ public partial class MainWindow : Window
             return true;
         }
         return false;
+    }
+
+    private async Task InstallMt5BridgeAsync()
+    {
+        try
+        {
+            StatusText.Text = "Preparing the local MetaTrader bridge…";
+            Respond(await Mt5BridgeInstaller.InstallAsync(), false);
+        }
+        catch (Exception ex) { Respond("MT5 bridge setup failed: " + ex.Message, false); }
     }
 
     private async Task FindLocalFilesAsync(string term)
