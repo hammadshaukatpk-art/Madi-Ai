@@ -55,6 +55,11 @@ public partial class MainWindow : Window
     private DateTime firstSpeech;
     private DateTime lastSpeech;
     private int speechFrames;
+    private CancellationTokenSource? piperCancellation;
+    private Task piperSpeechTask = Task.CompletedTask;
+    private bool piperSpeaking;
+    private int piperGeneration;
+    private int piperPendingSegments;
     private int micDeviceNumber;
     private List<ChromeProfile>? pendingChromeProfiles;
     private string pendingChromeUrl = "https://www.google.com";
@@ -127,8 +132,8 @@ public partial class MainWindow : Window
             { CommandBox.Focus(); CommandBox.SelectAll(); e.Handled = true; }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
             { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
-            else if (e.Key == Key.Escape && speaker.State == SynthesizerState.Speaking)
-            { speaker.SpeakAsyncCancelAll(); e.Handled = true; }
+            else if (e.Key == Key.Escape && (speaker.State == SynthesizerState.Speaking || piperSpeaking))
+            { StopSpeech(); e.Handled = true; }
         };
         stats.Tick += (_, _) => UpdateStats();
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
@@ -153,11 +158,79 @@ public partial class MainWindow : Window
         var language = LanguagePicker.SelectedIndex switch { 1 => "English", 2 => "Urdu", 3 => "Hindi", _ => "Automatic" };
         Respond("Voice recognition language: " + language + ". The change applies to your next command.", false);
     }
+    private void StopSpeech()
+    {
+        piperCancellation?.Cancel();
+        piperSpeaking = false;
+        speaker.SpeakAsyncCancelAll();
+    }
+
+    private async Task RunPiperSegmentAsync(string text, CancellationToken token, int generation)
+    {
+        try
+        {
+            var spoken = await PiperVoice.SpeakAsync(text, token);
+            if (!spoken && !token.IsCancellationRequested)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    try { speaker.SpeakAsync(text); } catch { }
+                });
+            }
+        }
+        finally
+        {
+            if (generation == piperGeneration && Interlocked.Decrement(ref piperPendingSegments) == 0)
+                piperSpeaking = false;
+        }
+    }
+
+    private async Task RunPiperRemainderAsync(Task previous, string text, CancellationToken token, int generation)
+    {
+        try
+        {
+            await previous;
+            if (!token.IsCancellationRequested)
+            {
+                var spoken = await PiperVoice.SpeakAsync(text, token);
+                if (!spoken && !token.IsCancellationRequested)
+                    await Dispatcher.InvokeAsync(() => { try { speaker.SpeakAsync(text); } catch { } });
+            }
+        }
+        finally
+        {
+            if (generation == piperGeneration && Interlocked.Decrement(ref piperPendingSegments) == 0)
+                piperSpeaking = false;
+        }
+    }
+
+    private void SpeakRemainder(string text)
+    {
+        if (piperCancellation is { IsCancellationRequested: false } cancellation && PiperVoice.IsAvailable)
+        {
+            Interlocked.Increment(ref piperPendingSegments);
+            piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
+            return;
+        }
+        try { speaker.SpeakAsync(text); } catch (InvalidOperationException) { }
+    }
+
     private void Speak(string text)
     {
         try
         {
-            speaker.SpeakAsyncCancelAll();
+            StopSpeech();
+            if (PiperVoice.IsAvailable && LanguagePicker.SelectedIndex is 0 or 1 &&
+                !Regex.IsMatch(text, @"[\u0600-\u06FF\u0900-\u097F]"))
+            {
+                var cancellation = new CancellationTokenSource();
+                piperCancellation = cancellation;
+                var generation = ++piperGeneration;
+                piperPendingSegments = 1;
+                piperSpeaking = true;
+                piperSpeechTask = RunPiperSegmentAsync(text, cancellation.Token, generation);
+                return;
+            }
             // Windows may not have Urdu/Hindi voices. Prefer an installed matching voice.
             var lang = LanguagePicker.SelectedIndex;
             var target = lang == 2 ? "ur" : lang == 3 ? "hi" : lang == 1 ? "en" :
@@ -363,7 +436,7 @@ public partial class MainWindow : Window
             {
                 userCancelledChat = true;
                 currentChatCancellation?.Cancel();
-                speaker.SpeakAsyncCancelAll();
+                StopSpeech();
                 Respond("Stopped. I'm ready for your next command.", false);
                 return;
             }
@@ -377,7 +450,7 @@ public partial class MainWindow : Window
             }
             if (text is "stop speaking" or "stop talking" or "be quiet" or "chup ho jao" or "चुप हो जाओ" or "خاموش ہو جاؤ")
             {
-                speaker.SpeakAsyncCancelAll();
+                StopSpeech();
                 Respond("Okay, I'm here when you need me.", false);
                 return;
             }
@@ -772,7 +845,7 @@ public partial class MainWindow : Window
 
     private void CompanionCheckIn()
     {
-        if (!unlocked || !companionEnabled || chatPending || processingAudio || speaker.State == SynthesizerState.Speaking)
+        if (!unlocked || !companionEnabled || chatPending || processingAudio || (speaker.State == SynthesizerState.Speaking || piperSpeaking))
             return;
         var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
         if (!GetLastInputInfo(ref info)) return;
@@ -993,8 +1066,7 @@ public partial class MainWindow : Window
                 var remainder = result[spokenChars..].Trim();
                 if (remainder.Length > 0)
                 {
-                    try { speaker.SpeakAsync(remainder); }
-                    catch (InvalidOperationException) { /* Missing voice; text remains available. */ }
+                    SpeakRemainder(remainder);
                 }
             }
         }
@@ -1328,7 +1400,7 @@ public partial class MainWindow : Window
             StartVoiceButton.Content = "STOP";
             VoiceModuleText.Text = "●  Voice • listening";
             Respond("Listening. Speak your command.", false);
-            speaker.SpeakAsyncCancelAll();
+            StopSpeech();
             StartRecording();
         }
         catch (OperationCanceledException)
@@ -1473,7 +1545,7 @@ public partial class MainWindow : Window
                     TryDelete(file);
                     // Don't record the assistant's own spoken response.
                     var deadline = DateTime.UtcNow.AddSeconds(10);
-                    while (listening && (chatPending || speaker.State == SynthesizerState.Speaking) && DateTime.UtcNow < deadline)
+                    while (listening && (chatPending || (speaker.State == SynthesizerState.Speaking || piperSpeaking)) && DateTime.UtcNow < deadline)
                         await Task.Delay(100);
                     if (listening) StartRecording();
                 }
