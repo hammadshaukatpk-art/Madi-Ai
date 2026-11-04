@@ -283,6 +283,7 @@ public partial class MainWindow : Window
         {
             if (TrySelectPendingChromeProfile(text)) return;
             if (TryHandleMemoryCommand(text, raw)) return;
+            if (TryHandleExtendedWindowsCommand(text, raw)) return;
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
@@ -395,6 +396,94 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    private bool TryHandleExtendedWindowsCommand(string text, string raw)
+    {
+        if (text.StartsWith("copy ") && text.EndsWith(" to clipboard"))
+        {
+            var value = raw.Trim();
+            var start = value.IndexOf("copy ", StringComparison.OrdinalIgnoreCase);
+            var end = value.LastIndexOf(" to clipboard", StringComparison.OrdinalIgnoreCase);
+            if (start >= 0 && end > start + 5)
+            {
+                System.Windows.Clipboard.SetText(value.Substring(start + 5, end - start - 5));
+                Respond("Copied the text to your clipboard.", false);
+                return true;
+            }
+        }
+        if (text is "read clipboard" or "what is in my clipboard" or "show clipboard")
+        {
+            var value = System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() : "";
+            Respond(value.Length == 0 ? "There is no text in the clipboard." :
+                "Clipboard text: " + (value.Length > 600 ? value[..600] + "…" : value), false);
+            return true;
+        }
+        if (text is "running apps" or "show running apps" or "what apps are open" or "list open windows")
+        {
+            var apps = Process.GetProcesses().Where(p =>
+            {
+                try { return p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(p.MainWindowTitle); }
+                catch { return false; }
+            }).Select(p => p.ProcessName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).Take(25).ToArray();
+            Respond(apps.Length == 0 ? "I couldn't find any visible app windows." :
+                "Visible running apps: " + string.Join(", ", apps), false);
+            return true;
+        }
+        if (text.StartsWith("switch to ") || text.StartsWith("focus ") || text.StartsWith("bring ") && text.EndsWith(" to front"))
+        {
+            var target = text.StartsWith("switch to ") ? text[10..] :
+                text.StartsWith("focus ") ? text[6..] : text[6..^9];
+            target = target.Trim();
+            if (target.Length < 2 || target.Length > 60) { Respond("Tell me which running app to focus.", false); return true; }
+            Process? match = null;
+            foreach (var process in Process.GetProcesses())
+            {
+                try
+                {
+                    if (process.MainWindowHandle != IntPtr.Zero &&
+                        (process.ProcessName.Contains(target, StringComparison.OrdinalIgnoreCase) ||
+                         process.MainWindowTitle.Contains(target, StringComparison.OrdinalIgnoreCase)))
+                    { match = process; break; }
+                }
+                catch { }
+            }
+            if (match == null) { Respond("I couldn't find an open window matching " + target, false); return true; }
+            ShowWindow(match.MainWindowHandle, 9);
+            var focused = SetForegroundWindow(match.MainWindowHandle);
+            Respond(focused ? "Switched to " + match.ProcessName : "Found " + match.ProcessName + ", but Windows blocked focus switching.", false);
+            return true;
+        }
+        if (text is "mt5 status" or "metatrader status" or "is mt5 running" or "check mt5")
+        {
+            var terminals = Process.GetProcesses().Where(p =>
+                p.ProcessName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
+                p.ProcessName.Equals("terminal", StringComparison.OrdinalIgnoreCase)).ToArray();
+            Respond(terminals.Length == 0 ? "MetaTrader 5 is not currently running." :
+                $"Detected {terminals.Length} MetaTrader terminal process(es). I cannot verify your broker login, positions or balances without a dedicated terminal integration.", false);
+            return true;
+        }
+        if (text is "system information" or "system status" or "pc status" or "computer status")
+        {
+            UpdateStats();
+            Respond($"Windows system status: CPU {CpuValue.Text}, RAM {RamValue.Text}, system disk used {DiskValue.Text}.", false);
+            return true;
+        }
+        if (text is "open desktop" or "desktop folder")
+        {
+            Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+            Respond("Opened your Desktop folder.", false);
+            return true;
+        }
+        return false;
+    }
+
     private bool TryHandleMemoryCommand(string normalized, string original)
     {
         if (normalized is "what do you remember" or "show memory" or "show my memory" or "what do you remember about me" ||
