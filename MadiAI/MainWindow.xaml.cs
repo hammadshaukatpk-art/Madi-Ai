@@ -473,6 +473,7 @@ public partial class MainWindow : Window
         if (!unlocked || string.IsNullOrWhiteSpace(raw)) return;
         var text = Normalize(raw);
         AppendConversation("You", raw);
+        RightPanelTabs.SelectedIndex = 1;
         CommandBox.Text = "";
         try
         {
@@ -1772,7 +1773,7 @@ public partial class MainWindow : Window
     private void Ali_Click(object sender, RoutedEventArgs e) => Execute("open aliexpress");
     private void Canva_Click(object sender, RoutedEventArgs e) => Execute("open canva");
     private void Mt5_Click(object sender, RoutedEventArgs e) => Execute("open mt5");
-    private void Chat_Click(object sender, RoutedEventArgs e) { Respond("Ask Madi AI a question in the command bar. Local AI chat uses Ollama if installed.", false); CommandBox.Focus(); }
+    private void Chat_Click(object sender, RoutedEventArgs e) { RightPanelTabs.SelectedIndex = 1; CommandBox.Focus(); }
     private void ChatGpt_Click(object sender, RoutedEventArgs e) => Execute("open chatgpt");
     private void Office_Click(object sender, RoutedEventArgs e) => Execute("open word");
     private void Calc_Click(object sender, RoutedEventArgs e) => Execute("open calculator");
