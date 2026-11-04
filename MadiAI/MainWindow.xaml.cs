@@ -206,10 +206,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            await previous;
+            try { await previous; }
+            catch (OperationCanceledException) { return; }
+            catch (Exception) { /* The next sentence may still be spoken by Windows TTS. */ }
             if (!token.IsCancellationRequested)
             {
-                var spoken = await PiperVoice.SpeakAsync(text, token);
+                var spoken = useNeuralVoice && PiperVoice.IsAvailableFor(text) &&
+                    await PiperVoice.SpeakAsync(text, token);
                 if (!spoken && !token.IsCancellationRequested)
                     await Dispatcher.InvokeAsync(() => { try { speaker.SpeakAsync(text); } catch { } });
             }
@@ -223,7 +226,9 @@ public partial class MainWindow : Window
 
     private void SpeakRemainder(string text)
     {
-        if (piperCancellation is { IsCancellationRequested: false } cancellation && useNeuralVoice && PiperVoice.IsAvailableFor(text))
+        // Keep sentences sequential even when the remainder must use the
+        // Windows voice rather than Piper (e.g., a language switch).
+        if (piperCancellation is { IsCancellationRequested: false } cancellation && piperSpeaking)
         {
             Interlocked.Increment(ref piperPendingSegments);
             piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
