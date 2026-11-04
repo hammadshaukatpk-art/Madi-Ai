@@ -529,6 +529,15 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        var chartRequest = Regex.Match(text,
+            @"^(?:mt5 chart |show )(?'symbol'[a-z0-9._-]{2,20})(?: (?'period'm1|m5|m15|m30|h1|h4|d1|w1|mn1))?(?: on mt5)?$");
+        if (chartRequest.Success)
+        {
+            var symbol = chartRequest.Groups["symbol"].Value;
+            var period = chartRequest.Groups["period"].Success ? chartRequest.Groups["period"].Value : "H1";
+            Respond(Mt5Bridge.RequestChart(symbol, period), false);
+            return true;
+        }
         if (text is "connect mt5" or "connect metatrader" or "install mt5 bridge" or "setup mt5 bridge")
         {
             _ = InstallMt5BridgeAsync();
