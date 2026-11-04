@@ -62,6 +62,7 @@ public partial class MainWindow : Window
     private bool chatPending;
     private bool installingLocalAi;
     private readonly List<(string Role, string Content)> chatHistory = new();
+    private LocalMemoryStore memory = null!;
     private string? selectedModel;
     private double smoothedCpu = -1;
     private string ChatHistoryFile => Path.Combine(profile, "conversation.json");
@@ -75,6 +76,7 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
+        memory = new LocalMemoryStore(profile);
         LoadConversationHistory();
         try
         {
@@ -280,6 +282,7 @@ public partial class MainWindow : Window
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (TryHandleMemoryCommand(text, raw)) return;
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
@@ -392,6 +395,41 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
     }
+    private bool TryHandleMemoryCommand(string normalized, string original)
+    {
+        if (normalized is "what do you remember" or "show memory" or "show my memory" or "what do you remember about me" ||
+            normalized.Contains("kya yaad hai") || normalized.Contains("क्या याद है") || normalized.Contains("کیا یاد ہے"))
+        {
+            Respond(memory.Items.Count == 0
+                ? "I haven't saved any personal memories yet. Say 'remember that ...' to save a preference."
+                : "Your private saved memories:\n" + string.Join("\n", memory.Items.Select((item, i) => $"{i + 1}. {item}")), false);
+            return true;
+        }
+        if (normalized is "clear memory" or "delete all memories" or "forget everything")
+        {
+            var answer = System.Windows.MessageBox.Show("Permanently delete all Madi AI saved memories on this PC?", "Confirm local memory deletion",
+                System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+            if (answer == System.Windows.MessageBoxResult.Yes) { memory.Clear(); Respond("All Madi AI saved memories were deleted from this PC.", false); }
+            else Respond("Memory deletion cancelled.", false);
+            return true;
+        }
+        var remember = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:remember that|remember|yaad rakh(?:o)?(?: ke)?|याद रखो(?: कि)?|یاد رکھو(?: کہ)?)\s+(.+)$");
+        if (remember.Success)
+        {
+            memory.TryRemember(remember.Groups[1].Value, out var feedback);
+            Respond(feedback, false);
+            return true;
+        }
+        var forget = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:forget that|forget|bhool jao|भूल जाओ|بھول جاؤ)\s+(.+)$");
+        if (forget.Success)
+        {
+            var count = memory.Forget(forget.Groups[1].Value);
+            Respond(count == 0 ? "I couldn't find a matching saved memory." : $"Removed {count} matching saved memory item(s).", false);
+            return true;
+        }
+        return false;
+    }
+
     private static string? FindOllama()
     {
         var paths = new[]
@@ -426,7 +464,7 @@ public partial class MainWindow : Window
             LocalAiModuleText.Text = "●  Local AI • " + model;
             var messages = new List<object>
             {
-                new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information." }
+                new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information. The user can manage memory with remember that, show memory, forget, and clear memory. " + memory.BuildPrompt() }
             };
             foreach (var entry in chatHistory.TakeLast(12))
                 messages.Add(new { role = entry.Role, content = entry.Content });
