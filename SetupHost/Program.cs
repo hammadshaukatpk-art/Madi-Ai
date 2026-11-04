@@ -373,7 +373,7 @@ public sealed class SetupWindow : Window
   if(File.Exists(desktop))File.Delete(desktop);
   var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
   if(Directory.Exists(menu))Directory.Delete(menu,true);
-  Registry.CurrentUser.DeleteSubKeyTree(@"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MadiAI",false);
+  Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI",false);
   // The LocalAppData/MadiAI profile intentionally remains for secret-code persistence.
  }
 }
