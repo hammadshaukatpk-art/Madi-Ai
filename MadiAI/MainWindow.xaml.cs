@@ -180,6 +180,11 @@ public partial class MainWindow : Window
     private async Task RefreshLocalAiStatusAsync()
     {
         var models = await GetInstalledModelsAsync();
+        if (models.Count == 0)
+        {
+            await TryStartInstalledOllamaAsync();
+            models = await GetInstalledModelsAsync();
+        }
         if (!unlocked) return;
         if (models.Count == 0)
         {
@@ -190,6 +195,27 @@ public partial class MainWindow : Window
             ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
             ?? models[0];
         LocalAiModuleText.Text = "●  Local AI • " + model;
+    }
+
+    private async Task TryStartInstalledOllamaAsync()
+    {
+        try
+        {
+            var installed = FindOllama();
+            if (installed == null || Process.GetProcessesByName("ollama").Length > 0) return;
+            Process.Start(new ProcessStartInfo(installed, "serve")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                await Task.Delay(450);
+                if ((await GetInstalledModelsAsync()).Count > 0) break;
+            }
+        }
+        catch (Exception) { /* Ollama is optional; Settings reports unavailability. */ }
     }
 
     private async Task<List<string>> GetInstalledModelsAsync()
