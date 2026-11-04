@@ -66,7 +66,7 @@ internal static class Mt5ChartAnalysis
         var digits = last.Close >= 100 ? 2 : last.Close >= 1 ? 4 : 6;
         string P(double value) => value.ToString("F" + digits, CultureInfo.InvariantCulture);
         return $"Read-only MT5 chart statistics for {symbol} {timeframe} " +
-               $"(last completed candle {last.Time:yyyy-MM-dd HH:mm} terminal time): " +
+               $"(last completed candle {last.Time:yyyy-MM-dd HH:mm} broker chart time): " +
                $"Close {P(last.Close)}, SMA20 {P(sma20)}, SMA50 {P(sma50)}, " +
                $"RSI14 {rsi:F1}/100, ATR14 {P(atr14)}. " +
                $"Close is {(last.Close > sma20 ? "above" : last.Close < sma20 ? "below" : "equal to")} " +
