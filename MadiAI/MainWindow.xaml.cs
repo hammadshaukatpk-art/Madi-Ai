@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer companionTimer = new() { Interval = TimeSpan.FromMinutes(20) };
-    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(12) };
+    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private string AuthFile => Path.Combine(profile, "unlock.json");
@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private DateTime firstSpeech;
     private DateTime lastSpeech;
     private int speechFrames;
+    private double noiseFloor = 0.003;
     private CancellationTokenSource? piperCancellation;
     private Task piperSpeechTask = Task.CompletedTask;
     private bool piperSpeaking;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
     private string pendingChromeUrl = "https://www.google.com";
     private string pendingChromeService = "Google";
     private bool voicePreparing;
+    private bool greeted;
     private bool chatPending;
     private readonly Queue<string> queuedQuestions = new();
     private CancellationTokenSource? currentChatCancellation;
@@ -439,19 +441,33 @@ public partial class MainWindow : Window
             SecretBox.Clear();
             GateOverlay.Visibility = Visibility.Collapsed;
             CoreState.Text = "MADI AI • ONLINE";
-            Respond("Madi AI unlocked. Voice control is starting.", false);
+            // The greeting must be audible immediately after unlocking, not
+            // after Whisper loads or Ollama becomes available.
+            GreetOnce();
             _ = RefreshLocalAiStatusAsync();
             Dispatcher.BeginInvoke(new Action(() => Voice_Click(this, new RoutedEventArgs())));
         }
         catch (Exception ex) { GateHelp.Text = "Unable to open profile: " + ex.Message; }
     }
+    private void GreetOnce()
+    {
+        if (greeted) return;
+        greeted = true;
+        Respond("Hello! I'm Madi AI. Would you like to chat or do something on your computer?");
+    }
+
     private void Unlock_Click(object sender, RoutedEventArgs e) => Unlock();
     private void SecretBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Unlock(); }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void CommandBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Enter) Execute(CommandBox.Text); }
+    private void CommandBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        Execute(CommandBox.Text);
+    }
     private void Send_Click(object sender, RoutedEventArgs e) => Execute(CommandBox.Text);
 
     private static void Open(string target) => Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
@@ -1680,15 +1696,14 @@ public partial class MainWindow : Window
             MicButton.Content = "■";
             StartVoiceButton.Content = "STOP";
             VoiceModuleText.Text = "●  Voice • listening";
-            // Speak the welcome before opening the microphone. Otherwise the
-            // assistant records its own greeting or never greets at all.
-            const string greeting = "Hello! I'm Madi AI. Would you like to chat or do something on your computer?";
-            Respond(greeting, false);
-            Speak(greeting);
-            var welcomeDeadline = DateTime.UtcNow.AddSeconds(20);
+            // Never record the assistant's own startup greeting.
+            GreetOnce();
+            var welcomeDeadline = DateTime.UtcNow.AddSeconds(16);
             while (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking) &&
                    DateTime.UtcNow < welcomeDeadline)
-                await Task.Delay(120);
+                await Task.Delay(100);
+            if (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking))
+                StopSpeech();
             if (listening) StartRecording();
         }
         catch (OperationCanceledException)
@@ -1773,6 +1788,7 @@ public partial class MainWindow : Window
         firstSpeech = DateTime.MinValue;
         lastSpeech = DateTime.MinValue;
         speechFrames = 0;
+        noiseFloor = 0.003;
         Interlocked.Exchange(ref stopRequested, 0);
         microphone = new WaveInEvent { DeviceNumber = micDeviceNumber, WaveFormat = new WaveFormat(16000, 16, 1), BufferMilliseconds = 100 };
         waveWriter = new WaveFileWriter(currentRecording, microphone.WaveFormat);
@@ -1791,10 +1807,15 @@ public partial class MainWindow : Window
             }
             double rms = samples > 0 ? Math.Sqrt((double)energy / samples) / 32768.0 : 0;
             var now = DateTime.UtcNow;
-            if (rms > 0.009)
+            // Reject constant fan/room noise instead of feeding Whisper random
+            // silent clips that become hallucinated Urdu or unrelated commands.
+            if (firstSpeech == DateTime.MinValue && rms < 0.012)
+                noiseFloor = noiseFloor * 0.90 + rms * 0.10;
+            var voiceThreshold = Math.Max(0.011, noiseFloor * 2.7);
+            if (rms > voiceThreshold)
             {
                 speechFrames++;
-                if (speechFrames >= 2)
+                if (speechFrames >= 3)
                 {
                     if (firstSpeech == DateTime.MinValue) firstSpeech = now;
                     lastSpeech = now;
@@ -1802,8 +1823,8 @@ public partial class MainWindow : Window
             }
             else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
             if (firstSpeech != DateTime.MinValue &&
-                (now - firstSpeech).TotalMilliseconds >= 450 &&
-                (now - lastSpeech).TotalMilliseconds >= 900)
+                (now - firstSpeech).TotalMilliseconds >= 350 &&
+                (now - lastSpeech).TotalMilliseconds >= 650)
             {
                 if (Interlocked.Exchange(ref stopRequested, 1) == 0)
                     Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
