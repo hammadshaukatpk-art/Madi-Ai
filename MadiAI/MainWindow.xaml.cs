@@ -468,7 +468,10 @@ public partial class MainWindow : Window
         // apparent command is classified, so chit-chat stays responsive.
         var looksLikeCommand = Regex.IsMatch(normalized,
             @"\b(?:open|launch|start|run|show|bring|switch|focus|search|find|kholo|khol|खोलो|کھولو)\b") ||
-            normalized.Contains(" kholo") || normalized.Contains(" खोलो") || normalized.Contains(" کھولو");
+            normalized.Contains(" kholo") || normalized.Contains(" खोलो") || normalized.Contains(" کھولو") ||
+            normalized.EndsWith(" karo") || normalized.EndsWith(" kar do") ||
+            normalized.EndsWith(" करो") || normalized.EndsWith(" کر دو") ||
+            normalized.EndsWith(" dikhao") || normalized.EndsWith(" دکھاؤ");
         if (looksLikeCommand && !chatPending)
         {
             try
