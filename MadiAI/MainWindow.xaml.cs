@@ -529,6 +529,13 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        var typeMatch = Regex.Match(raw.Trim(),
+            @"(?is)^type (.{1,1000}?) into ([a-z0-9 ._-]{2,60})$");
+        if (typeMatch.Success)
+        {
+            _ = TypeIntoAppAsync(typeMatch.Groups[2].Value, typeMatch.Groups[1].Value);
+            return true;
+        }
         var chartRequest = Regex.Match(text,
             @"^(?:mt5 chart |show )(?'symbol'[a-z0-9._-]{2,20})(?: (?'period'm1|m5|m15|m30|h1|h4|d1|w1|mn1))?(?: on mt5)?$");
         if (chartRequest.Success)
@@ -638,6 +645,12 @@ public partial class MainWindow : Window
             return true;
         }
         return false;
+    }
+
+    private async Task TypeIntoAppAsync(string app, string content)
+    {
+        try { Respond(await WindowsTextAutomation.TypeIntoAsync(app, content), false); }
+        catch (Exception ex) { Respond("Windows typing failed: " + ex.Message, false); }
     }
 
     private async Task InstallMt5BridgeAsync()
