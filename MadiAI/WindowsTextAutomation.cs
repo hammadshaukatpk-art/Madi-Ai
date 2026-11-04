@@ -23,18 +23,18 @@ internal static class WindowsTextAutomation
         public UIntPtr ExtraInfo;
     }
 
-    [StructLayout(LayoutKind.Explicit, Size = 32)]
-    private struct InputUnion
-    {
-        [FieldOffset(0)] public KeyboardInput Keyboard;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
+    // INPUT has a four-byte padding gap after type on Win64. The installer
+    // targets win-x64; SendInput rejects structures with the wrong cbSize.
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
     private struct Input
     {
-        public uint Type;
-        public InputUnion Data;
+        [FieldOffset(0)] public uint Type;
+        [FieldOffset(8)] public KeyboardInput Keyboard;
     }
+
+    internal static bool HasValidNativeLayout =>
+        IntPtr.Size == 8 && Marshal.SizeOf<Input>() == 40 &&
+        Marshal.SizeOf<KeyboardInput>() == 24;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint count, Input[] inputs, int size);
@@ -69,6 +69,12 @@ internal static class WindowsTextAutomation
         if (matches.Length > 1) return "Several windows matched " + appName + ". Please use a more specific app name.";
 
         var target = matches[0];
+        if (target.ProcessName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
+            target.ProcessName.Equals("terminal", StringComparison.OrdinalIgnoreCase) ||
+            target.MainWindowTitle.Contains("MetaTrader", StringComparison.OrdinalIgnoreCase))
+            return "Typing into a trading terminal is disabled. Use the dedicated MT5 bridge.";
+        if (!HasValidNativeLayout)
+            return "Windows keyboard automation is unavailable for this platform.";
         var preview = text.Length > 160 ? text[..160] + "…" : text;
         var answer = System.Windows.MessageBox.Show(
             "Type this text into " + target.ProcessName + "?\n\n" + preview +
@@ -88,18 +94,12 @@ internal static class WindowsTextAutomation
             events[i * 2] = new Input
             {
                 Type = 1,
-                Data = new InputUnion
-                {
-                    Keyboard = new KeyboardInput { ScanCode = text[i], Flags = 0x0004 }
-                }
+                Keyboard = new KeyboardInput { ScanCode = text[i], Flags = 0x0004 }
             };
             events[i * 2 + 1] = new Input
             {
                 Type = 1,
-                Data = new InputUnion
-                {
-                    Keyboard = new KeyboardInput { ScanCode = text[i], Flags = 0x0004 | 0x0002 }
-                }
+                Keyboard = new KeyboardInput { ScanCode = text[i], Flags = 0x0004 | 0x0002 }
             };
         }
         var sent = SendInput((uint)events.Length, events, Marshal.SizeOf<Input>());
