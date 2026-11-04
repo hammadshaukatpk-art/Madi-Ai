@@ -97,6 +97,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        CommandBox.TextChanged += (_, _) =>
+            CommandHint.Visibility = string.IsNullOrEmpty(CommandBox.Text) ? Visibility.Visible : Visibility.Collapsed;
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
