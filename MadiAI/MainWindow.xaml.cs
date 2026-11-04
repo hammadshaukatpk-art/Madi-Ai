@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     private string CompanionFile => Path.Combine(profile, "companion.txt");
     private readonly List<(string Role, string Content)> chatHistory = new();
     private LocalMemoryStore memory = null!;
+    private LocalRoutines routines = null!;
     private string? selectedModel;
     private List<string> cachedModels = new();
     private DateTime modelsCachedAt = DateTime.MinValue;
@@ -87,6 +88,7 @@ public partial class MainWindow : Window
         companionTimer.Tick += (_, _) => CompanionCheckIn();
         companionTimer.Start();
         memory = new LocalMemoryStore(profile);
+        routines = new LocalRoutines(profile);
         LoadConversationHistory();
         try
         {
@@ -351,6 +353,7 @@ public partial class MainWindow : Window
                 return;
             }
             if (TryHandleMemoryCommand(text, raw)) return;
+            if (TryHandleRoutineCommand(text, raw)) return;
             if (TryHandleExtendedWindowsCommand(text, raw)) return;
             // Prevent questions such as "What is MT5?" or "Explain YouTube"
             // from accidentally launching programs merely by naming them.
@@ -545,6 +548,49 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ShowWindow(IntPtr hWnd, int command);
+
+    private bool TryHandleRoutineCommand(string normalized, string original)
+    {
+        if (normalized is "list routines" or "show routines" or "my routines")
+        {
+            var names = routines.Names.ToArray();
+            Respond(names.Length == 0 ? "No routines saved yet. Try: save routine morning: open google; open notepad" :
+                "Saved routines: " + string.Join(", ", names), false);
+            return true;
+        }
+        var save = Regex.Match(original.Trim(), @"(?is)^save routine ([a-z0-9 _-]{2,30}):\s*(.+)$");
+        if (save.Success)
+        {
+            Respond(routines.Save(save.Groups[1].Value, save.Groups[2].Value), false);
+            return true;
+        }
+        var run = Regex.Match(original.Trim(), @"(?i)^run routine ([a-z0-9 _-]{2,30})$");
+        if (run.Success)
+        {
+            var name = run.Groups[1].Value;
+            var commands = routines.Get(name);
+            if (commands == null) { Respond("No saved routine named " + name, false); return true; }
+            var answer = System.Windows.MessageBox.Show(
+                "Run routine '" + name + "'?\n\n" + string.Join("\n", commands) +
+                "\n\nEach step will open an app or perform a safe local action.",
+                "Madi AI • Confirm routine", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+            if (answer == System.Windows.MessageBoxResult.Yes)
+            {
+                Respond("Running routine " + name + "…", false);
+                foreach (var command in commands) Execute(command);
+            }
+            else Respond("Routine cancelled.", false);
+            return true;
+        }
+        var delete = Regex.Match(original.Trim(), @"(?i)^delete routine ([a-z0-9 _-]{2,30})$");
+        if (delete.Success)
+        {
+            var name = delete.Groups[1].Value;
+            Respond(routines.Delete(name) ? "Deleted routine " + name : "No matching routine found.", false);
+            return true;
+        }
+        return false;
+    }
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
@@ -1438,7 +1484,7 @@ public partial class MainWindow : Window
         var dialog = new Microsoft.Win32.OpenFileDialog();
         if (dialog.ShowDialog() == true) { try { Open(dialog.FileName); Respond("Opening your selected file."); } catch (Exception ex) { Respond(ex.Message); } }
     }
-    private void Tasks_Click(object sender, RoutedEventArgs e) => Respond("Custom task routines are planned, but not enabled yet.");
+    private void Tasks_Click(object sender, RoutedEventArgs e) => Execute("list routines");
     private async void Settings_Click(object sender, RoutedEventArgs e)
     {
         if (!unlocked) return;
