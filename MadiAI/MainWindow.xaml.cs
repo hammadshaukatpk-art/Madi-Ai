@@ -61,6 +61,8 @@ public partial class MainWindow : Window
     private string pendingChromeService = "Google";
     private bool voicePreparing;
     private bool chatPending;
+    private CancellationTokenSource? currentChatCancellation;
+    private bool userCancelledChat;
     private bool installingLocalAi;
     private bool companionEnabled;
     private string CompanionFile => Path.Combine(profile, "companion.txt");
@@ -338,6 +340,14 @@ public partial class MainWindow : Window
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (text is "stop" or "cancel response" or "stop answering" or "stop madi")
+            {
+                userCancelledChat = true;
+                currentChatCancellation?.Cancel();
+                speaker.SpeakAsyncCancelAll();
+                Respond("Stopped. I'm ready for your next command.", false);
+                return;
+            }
             if (text is "what are you doing" or "what are you up to" or "kya kar rahi ho" or
                 "tum kya kar rahi ho" or "kya kar rahe ho" or "क्या कर रही हो" or "کیا کر رہی ہو")
             {
@@ -875,6 +885,8 @@ public partial class MainWindow : Window
     {
         if (chatPending) { Respond("I am still answering your previous question.", false); return; }
         chatPending = true;
+        userCancelledChat = false;
+        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
         try
         {
             CoreState.Text = "MADI AI • THINKING";
@@ -901,7 +913,7 @@ public partial class MainWindow : Window
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
             using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:11434/api/chat")
             { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
-            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentChatCancellation.Token);
             response.EnsureSuccessStatusCode();
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
@@ -910,7 +922,7 @@ public partial class MainWindow : Window
             ConversationText.AppendText("Madi: ");
             var lastUiUpdate = DateTime.UtcNow;
             string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            while ((line = await reader.ReadLineAsync(currentChatCancellation.Token)) != null)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 using var chunk = JsonDocument.Parse(line);
@@ -974,13 +986,25 @@ public partial class MainWindow : Window
         }
         catch (TaskCanceledException)
         {
-            Respond("The local model took too long. Try a smaller model in Settings.", false);
+            ConversationText.AppendText("\n\n");
+            if (!userCancelledChat) Respond("The local model took too long. Try a smaller model in Settings.", false);
+        }
+        catch (OperationCanceledException)
+        {
+            ConversationText.AppendText("\n\n");
+            if (!userCancelledChat) Respond("The local model request was interrupted.", false);
         }
         catch (Exception ex)
         {
             Respond("Local AI error: " + ex.Message, false);
         }
-        finally { chatPending = false; CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE"; }
+        finally
+        {
+            currentChatCancellation?.Dispose();
+            currentChatCancellation = null;
+            chatPending = false;
+            CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+        }
     }
 
     [DllImport("user32.dll")]
