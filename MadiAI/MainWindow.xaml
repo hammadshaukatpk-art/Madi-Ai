@@ -40,20 +40,24 @@
 
 <Grid>
  <Grid.Background><RadialGradientBrush Center=".48,.48" RadiusX=".86" RadiusY=".95"><GradientStop Color="#0A2850" Offset="0"/><GradientStop Color="#061529" Offset=".57"/><GradientStop Color="#020713" Offset="1"/></RadialGradientBrush></Grid.Background>
- <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="80"/><RowDefinition Height="88"/><RowDefinition Height="26"/></Grid.RowDefinitions>
+ <Grid.RowDefinitions><RowDefinition Height="70"/><RowDefinition Height="*"/><RowDefinition Height="84"/><RowDefinition Height="85"/><RowDefinition Height="18"/></Grid.RowDefinitions>
  <Border Grid.Row="0" BorderBrush="#2077AF" BorderThickness="0,0,0,1" Background="#D906172C">
   <Grid Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
     <Image Source="/madi.png" Width="48" Height="48" Stretch="Uniform"/>
     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
      <TextBlock Text="MADI AI" FontSize="23" FontWeight="Bold" Foreground="#E7F9FF"/>
-     <TextBlock Text="PERSONAL INTELLIGENCE SYSTEM  /  LOCAL CORE" FontSize="10" Foreground="#63D5FF"/>
+     <TextBlock Text="PERSONAL INTELLIGENCE SYSTEM" FontSize="10" Foreground="#63D5FF"/>
     </StackPanel>
-    <Border Background="#0D3A4C" BorderBrush="#208BB5" BorderThickness="1" CornerRadius="9" Margin="22,0,0,0" Padding="10,6" VerticalAlignment="Center">
+    <Border Background="#0D3A4C" BorderBrush="#20D5F5" BorderThickness="1.5" CornerRadius="14" Margin="22,0,0,0" Padding="14,6" VerticalAlignment="Center">
      <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" FontSize="12" Foreground="#68E8F6"/>
     </Border>
    </StackPanel>
    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+    <Button Content="◉  Chat" Width="86" Height="35" Margin="0,0,7,0" Style="{StaticResource TileButton}" Click="Chat_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+    <Button Content="▱  Task" Width="86" Height="35" Margin="0,0,7,0" Style="{StaticResource TileButton}" Click="Tasks_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+    <Button x:Name="AutoButton" Content="Auto: OFF" Width="95" Height="35" Margin="0,0,7,0" Style="{StaticResource TileButton}" Click="Auto_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+    <Button Content="⚙  Settings" Width="92" Height="35" Margin="0,0,9,0" Style="{StaticResource TileButton}" Click="Settings_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
     <ComboBox x:Name="LanguagePicker" Width="130" Height="35" SelectedIndex="0" Style="{StaticResource DarkLanguageCombo}" SelectionChanged="LanguagePicker_SelectionChanged" ToolTip="Recognition language" shell:WindowChrome.IsHitTestVisibleInChrome="True">
      <ComboBoxItem Content="🌐 Auto"/><ComboBoxItem Content="English"/><ComboBoxItem Content="اردو"/><ComboBoxItem Content="हिन्दी"/>
     </ComboBox>
@@ -64,13 +68,14 @@
    </StackPanel>
   </Grid>
  </Border>
- <Grid Grid.Row="1" Margin="12,12,12,8">
+ <Grid Grid.Row="1" Margin="12,10,12,6">
+  <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="80"/></Grid.RowDefinitions>
   <Grid.ColumnDefinitions><ColumnDefinition Width="216"/><ColumnDefinition Width="260"/><ColumnDefinition Width="*" MinWidth="315"/><ColumnDefinition Width="355"/></Grid.ColumnDefinitions>
   <Border Grid.Column="0" Background="#C8081B34" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Margin="0,0,12,0">
    <DockPanel>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
      <StackPanel Margin="8,14,8,8">
-      <TextBlock Text="CONTROL CENTER" FontSize="11" Foreground="#6EDBFF" FontWeight="Bold" Margin="14,0,0,12"/>
+      <TextBlock Text=" " FontSize="7" Foreground="#6EDBFF" FontWeight="Bold" Margin="14,0,0,3"/>
       <Button x:Name="NavHome" Style="{StaticResource MenuButton}" Content="⌂   Dashboard" Background="#21477D"/>
       <Button Style="{StaticResource MenuButton}" Content="◉   Voice Control" Click="Voice_Click"/>
       <Button Style="{StaticResource MenuButton}" Content="✦   AI Conversation" Click="Chat_Click"/>
@@ -88,7 +93,7 @@
   <ScrollViewer Grid.Column="1" Margin="0,0,12,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
    <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,12">
     <StackPanel>
-     <TextBlock Text="●  SYSTEM STATUS" FontWeight="Bold" FontSize="14" Foreground="#DBF7FF" Margin="0,0,0,12"/>
+     <TextBlock Text="♧  SYSTEM MONITOR" FontWeight="Bold" FontSize="14" Foreground="#DBF7FF" Margin="0,0,0,12"/>
      <UniformGrid Columns="3">
       <StackPanel Margin="3" HorizontalAlignment="Center">
        <Border Width="70" Height="70" CornerRadius="35" BorderBrush="#19CFFF" BorderThickness="4" Background="#092747">
@@ -110,7 +115,7 @@
    </Border>
    <Border Background="#C6081930" BorderBrush="#1674B4" BorderThickness="1" CornerRadius="14" Padding="12">
     <StackPanel>
-     <TextBlock Text="✦  ACTIVE MODULES" FontSize="15" FontWeight="Bold" Foreground="#DFF8FF" Margin="0,0,0,12"/>
+     <TextBlock Text="✓  AI STATUS" FontSize="15" FontWeight="Bold" Foreground="#DFF8FF" Margin="0,0,0,12"/>
      <TextBlock x:Name="VoiceModuleText" Text="◌  Voice • standby" FontSize="12" Foreground="#8FD9EF" Margin="0,4" TextWrapping="Wrap"/>
      <Separator Background="#194269" Margin="0,6"/>
      <TextBlock x:Name="LocalAiModuleText" Text="◌  Local AI • checking" FontSize="12" Foreground="#A5D2F0" Margin="0,4" TextWrapping="Wrap"/>
@@ -126,7 +131,7 @@
   <Grid Grid.Column="2" Margin="0,0,12,0">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel HorizontalAlignment="Center" Margin="0,6,0,0">
-    <TextBlock Text="MADI  /  INTELLIGENCE CORE" FontSize="19" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center"/>
+    <TextBlock Text="MADI AI / INTELLIGENCE CORE" FontSize="20" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center"/>
     <TextBlock Text="YOUR PERSONAL AI ASSISTANT" FontSize="11" Foreground="#69C9F1" HorizontalAlignment="Center" Margin="0,7,0,0"/>
    </StackPanel>
    <Grid Grid.Row="1" MinHeight="260" ClipToBounds="True">
@@ -141,32 +146,18 @@
      <Image.Effect><DropShadowEffect Color="#1484E9" BlurRadius="30" ShadowDepth="0" Opacity=".65"/></Image.Effect>
     </Image>
     <Border Width="220" Height="32" Background="#CC092342" BorderBrush="#2886C7" BorderThickness="1" CornerRadius="14" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,9">
-     <TextBlock Text="◈  NEURAL LINK ACTIVE" Foreground="#66E2FF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+     <TextBlock Text="◈  MADI AI ONLINE" Foreground="#66E2FF" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
     </Border>
      </Grid>
     </Viewbox>
    </Grid>
    <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,6">
-    <TextBlock Text="READY FOR CONVERSATION OR COMMANDS" FontSize="11" Foreground="#91BBD4" HorizontalAlignment="Center"/>
+    <TextBlock Text="LISTENING FOR YOUR NEXT COMMAND" FontSize="11" Foreground="#91BBD4" HorizontalAlignment="Center"/>
     <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="13" Foreground="#64F3AE" HorizontalAlignment="Center" Margin="0,5,0,0"/>
    </StackPanel>
   </Grid>
   <Grid Grid.Column="3">
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <Border Background="#D6081A32" BorderBrush="#2276B0" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,0,0,12">
-    <StackPanel>
-     <TextBlock Text="◈  QUICK ACTIONS" FontSize="15" FontWeight="Bold" Foreground="#EAF9FF" Margin="0,0,0,10"/>
-     <UniformGrid Columns="3" Rows="2">
-      <Button Style="{StaticResource TileButton}" Content="OPEN APP" Height="55" Click="Apps_Click"/>
-      <Button Style="{StaticResource TileButton}" Content="WEB SEARCH" Height="55" Click="Web_Click"/>
-      <Button Style="{StaticResource TileButton}" Content="CALCULATE" Height="55" Click="Calc_Click"/>
-      <Button Style="{StaticResource TileButton}" Content="OPEN FILE" Height="55" Click="Files_Click"/>
-      <Button Style="{StaticResource TileButton}" Content="SCREENSHOT" Height="55" Click="Screenshot_Click"/>
-      <Button Style="{StaticResource TileButton}" Content="VOICE" Height="55" Click="Voice_Click"/>
-     </UniformGrid>
-    </StackPanel>
-   </Border>
-   <TabControl x:Name="RightPanelTabs" Grid.Row="1" SelectedIndex="1" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
+   <TabControl x:Name="RightPanelTabs" SelectedIndex="1" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
     <TabItem Header="CAPABILITIES" Background="#092342" Foreground="#EAF9FF">
      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
       <StackPanel>
@@ -181,7 +172,7 @@
       </StackPanel>
      </ScrollViewer>
     </TabItem>
-    <TabItem Header="CONVERSATION" Background="#092342" Foreground="#EAF9FF">
+    <TabItem Header="◉  LIVE CONVERSATION" Background="#092342" Foreground="#EAF9FF">
      <Grid Margin="8">
       <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <TextBox x:Name="ConversationText" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="13" Padding="9" Foreground="#D6F1FF" Background="#090F2138" BorderBrush="#20557C" BorderThickness="1" AcceptsReturn="True"/>
@@ -190,15 +181,27 @@
     </TabItem>
    </TabControl>
   </Grid>
+  <Border Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="8,4,4,4" Background="#BC091C36" BorderBrush="#1B9ED1" BorderThickness="1.5" CornerRadius="16">
+   <UniformGrid Columns="6" Margin="6">
+    <Button Style="{StaticResource TileButton}" Content="☏  Chat with Madi" Click="Chat_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▷  Run a Task" Click="Tasks_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▦  Open App" Click="Apps_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▣  System Control" Click="System_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="▥  MT5 Trading" Click="Mt5_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="◎  Web Search" Click="Web_Click"/>
+   </UniformGrid>
+  </Border>
  </Grid>
  <Border Grid.Row="2" Margin="240,0,12,0" Background="#D9081930" BorderBrush="#1E8BCE" BorderThickness="1" CornerRadius="20">
   <Grid Margin="12,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="76"/><ColumnDefinition Width="88"/></Grid.ColumnDefinitions>
-   <TextBox x:Name="CommandBox" Height="44" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="15" Padding="14,8" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Say a command or type a message"/>
-   <Button x:Name="MicButton" Grid.Column="1" Content="MIC" FontSize="14" FontWeight="Bold" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="7,0" Click="Voice_Click"/>
-   <Button Grid.Column="2" Content="SEND  ➤" FontSize="12" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
+   <TextBox x:Name="CommandBox" Height="44" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="15" Padding="14,8" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Speak or type a command in English, Urdu, or Hindi"/>
+   <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="20" FontWeight="Bold" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="7,0" Click="Voice_Click"/>
+   <Button Grid.Column="2" Content="➤" FontSize="24" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
   </Grid>
  </Border>
- <Border Grid.Row="3" Margin="240,5,12,5" Background="#C9081930" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Padding="6">
+ <Border Grid.Row="3" Margin="12,5,12,5" Background="#C9081930" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Padding="6">
+  <DockPanel>
+  <TextBlock DockPanel.Dock="Left" Text="▦  QUICK APPS" FontWeight="Bold" Foreground="#EAF9FF" VerticalAlignment="Center" Margin="12,0,18,0" FontSize="13"/>
   <UniformGrid Columns="10">
    <Button Style="{StaticResource TileButton}" Content="🌐 Chrome" Click="Browser_Click"/>
    <Button Style="{StaticResource TileButton}" Content="▶ YouTube" Click="Youtube_Click"/>
@@ -209,8 +212,9 @@
    <Button Style="{StaticResource TileButton}" Content="✦ Canva" Click="Canva_Click"/>
    <Button Style="{StaticResource TileButton}" Content="▣ Office" Click="Office_Click"/>
    <Button Style="{StaticResource TileButton}" Content="✦ ChatGPT" Click="ChatGpt_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="⚙ Apps" Click="Apps_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="⚙ Settings" Click="Settings_Click"/>
   </UniformGrid>
+ </DockPanel>
  </Border>
  <Grid Grid.Row="4" Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
   <TextBlock Text="MADI AI  •  SECURE LOCAL DESKTOP" Foreground="#547E9E" FontSize="10" VerticalAlignment="Center"/>
