@@ -519,7 +519,8 @@ public partial class MainWindow : Window
             "explorer" or "file explorer" or "files" or "settings" or "windows settings" or
             "downloads" or "downloads folder" or "documents" or "documents folder" or
             "desktop" or "desktop folder" or "pictures" or "pictures folder" or
-            "canva" or "ebay" or "aliexpress" or "chatgpt" ? app : null;
+            "canva" or "ebay" or "aliexpress" or "chatgpt" or
+            "edge" or "microsoft edge" or "gmail" or "telegram" ? app : null;
     }
 
     private bool TryHandleInstantCommand(string normalized)
@@ -557,6 +558,16 @@ public partial class MainWindow : Window
             case "ebay": OpenWebWithProfile("eBay", "https://www.ebay.com", normalized); return true;
             case "aliexpress": OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", normalized); return true;
             case "chatgpt": Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return true;
+            case "edge": case "microsoft edge":
+                Open("microsoft-edge:https://www.google.com");
+                Respond("Opening Microsoft Edge."); return true;
+            case "gmail":
+                OpenWebWithProfile("Gmail", "https://mail.google.com", normalized); return true;
+            case "telegram":
+                if (TryLaunchShortcut("Telegram Desktop", out _) || TryLaunchShortcut("Telegram", out _))
+                    Respond("Opening Telegram Desktop.");
+                else { Open("https://web.telegram.org"); Respond("Opening Telegram Web."); }
+                return true;
             default: return false;
         }
     }
@@ -1947,6 +1958,10 @@ public partial class MainWindow : Window
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch { } }
 
+    private void Edge_Click(object sender, RoutedEventArgs e) => Execute("open edge");
+    private void Explorer_Click(object sender, RoutedEventArgs e) => Execute("open file explorer");
+    private void Gmail_Click(object sender, RoutedEventArgs e) => Execute("open gmail");
+    private void Telegram_Click(object sender, RoutedEventArgs e) => Execute("open telegram");
     private void Browser_Click(object sender, RoutedEventArgs e) => Execute("open google");
     private void Youtube_Click(object sender, RoutedEventArgs e) => Execute("open youtube");
     private void Whatsapp_Click(object sender, RoutedEventArgs e) => Execute("open whatsapp");
