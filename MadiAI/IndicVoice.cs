@@ -1,10 +1,10 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
+using SherpaOnnx;
 
 namespace MadiAI;
 
@@ -15,7 +15,6 @@ namespace MadiAI;
 internal static class IndicVoice
 {
     private static string Root => Path.Combine(AppContext.BaseDirectory, "sherpa");
-    private static string Exe => Path.Combine(Root, "sherpa-onnx-offline-tts.exe");
     private static string Language(string text, string? selected) =>
         Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
         Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" :
@@ -32,9 +31,32 @@ internal static class IndicVoice
         var language = Language(text, selected);
         if (language is not ("hi" or "ur")) return false;
         var folder = Folder(language);
-        return File.Exists(Exe) && File.Exists(Path.Combine(folder, Name(language))) &&
+        return File.Exists(Path.Combine(folder, Name(language))) &&
             File.Exists(Path.Combine(folder, "tokens.txt")) &&
             Directory.Exists(Path.Combine(folder, "espeak-ng-data"));
+    }
+
+    // C# API passes native UTF-8 strings. Windows command-line executables
+    // converted Devanagari/Urdu arguments into question marks and cannot be used.
+    internal static bool SynthesizeToFile(string text, string outputFile, string? selected = null)
+    {
+        if (!IsAvailable(text, selected)) return false;
+        var language = Language(text, selected);
+        var folder = Folder(language);
+        var config = new OfflineTtsConfig();
+        config.Model.Vits.Model = Path.Combine(folder, Name(language));
+        config.Model.Vits.Tokens = Path.Combine(folder, "tokens.txt");
+        config.Model.Vits.DataDir = Path.Combine(folder, "espeak-ng-data");
+        config.Model.NumThreads = 2;
+        config.Model.Provider = "cpu";
+        config.MaxNumSentences = 1;
+        var tts = new OfflineTts(config);
+        var generation = new OfflineTtsGenerationConfig();
+        generation.Sid = 0;
+        generation.Speed = 1.0f;
+        generation.SilenceScale = 0.2f;
+        var audio = tts.GenerateWithConfig(text, generation, null);
+        return audio.SaveToWaveFile(outputFile) && new FileInfo(outputFile).Length > 3000;
     }
 
     internal static async Task<bool> SpeakAsync(string text, CancellationToken cancellationToken, string? selected = null)
@@ -47,28 +69,12 @@ internal static class IndicVoice
         timeout.CancelAfter(TimeSpan.FromSeconds(45));
         try
         {
-            var start = new ProcessStartInfo(Exe)
+            var ok = await Task.Run(() =>
             {
-                WorkingDirectory = Root,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            start.ArgumentList.Add("--vits-model=" + Path.Combine(folder, Name(language)));
-            start.ArgumentList.Add("--vits-tokens=" + Path.Combine(folder, "tokens.txt"));
-            start.ArgumentList.Add("--vits-data-dir=" + Path.Combine(folder, "espeak-ng-data"));
-            start.ArgumentList.Add("--output-filename=" + outputFile);
-            start.ArgumentList.Add(text);
-            using (var process = Process.Start(start))
-            {
-                if (process == null) return false;
-                using var cancel = timeout.Token.Register(() =>
-                {
-                    try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-                });
-                await process.WaitForExitAsync(timeout.Token);
-                if (process.ExitCode != 0 || !File.Exists(outputFile) || new FileInfo(outputFile).Length < 1000)
-                    return false;
-            }
+                timeout.Token.ThrowIfCancellationRequested();
+                return SynthesizeToFile(text, outputFile, selected);
+            }, timeout.Token).WaitAsync(timeout.Token);
+            if (!ok || timeout.Token.IsCancellationRequested) return false;
             using var reader = new AudioFileReader(outputFile);
             using var playback = new WaveOutEvent();
             var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
