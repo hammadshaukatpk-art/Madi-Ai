@@ -1635,6 +1635,14 @@ public partial class MainWindow : Window
             FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 15, 0, 8) });
         var installed = speaker.GetInstalledVoices().Where(v => v.Enabled)
             .Select(v => v.VoiceInfo.Culture.Name).Distinct().ToList();
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Offline neural voices: English " + (PiperVoice.IsAvailableFor("Hello") ? "ready" : "unavailable") +
+                " | Urdu " + (PiperVoice.IsAvailableFor("سلام") ? "ready" : "unavailable") +
+                " | Hindi uses an installed Windows voice",
+            FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue,
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8)
+        });
         panel.Children.Add(new TextBlock { Text = "Windows spoken voice languages: " + (installed.Count == 0 ? "none" : string.Join(", ", installed)),
             FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue, TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 8) });
