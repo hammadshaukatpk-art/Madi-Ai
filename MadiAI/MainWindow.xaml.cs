@@ -78,6 +78,7 @@ public partial class MainWindow : Window
     private string? selectedModel;
     private string? preferredVoice;
     private int speechRate = 1;
+    private bool useNeuralVoice = true;
     private string VoiceSettingsFile => Path.Combine(profile, "voice-settings.json");
     private List<string> cachedModels = new();
     private DateTime modelsCachedAt = DateTime.MinValue;
@@ -105,6 +106,7 @@ public partial class MainWindow : Window
                 using var voiceSettings = JsonDocument.Parse(File.ReadAllText(VoiceSettingsFile));
                 if (voiceSettings.RootElement.TryGetProperty("voice", out var savedVoice)) preferredVoice = savedVoice.GetString();
                 if (voiceSettings.RootElement.TryGetProperty("rate", out var savedRate)) speechRate = Math.Clamp(savedRate.GetInt32(), -2, 4);
+                if (voiceSettings.RootElement.TryGetProperty("neural", out var savedNeural)) useNeuralVoice = savedNeural.GetBoolean();
             }
             speaker.Rate = speechRate;
         }
@@ -207,7 +209,7 @@ public partial class MainWindow : Window
 
     private void SpeakRemainder(string text)
     {
-        if (piperCancellation is { IsCancellationRequested: false } cancellation && PiperVoice.IsAvailableFor(text))
+        if (piperCancellation is { IsCancellationRequested: false } cancellation && useNeuralVoice && PiperVoice.IsAvailableFor(text))
         {
             Interlocked.Increment(ref piperPendingSegments);
             piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
@@ -226,7 +228,7 @@ public partial class MainWindow : Window
                 try { microphone.StopRecording(); } catch { pauseForSpeech = false; }
             }
             StopSpeech();
-            if (PiperVoice.IsAvailableFor(text) &&
+            if (useNeuralVoice && PiperVoice.IsAvailableFor(text) &&
                 !Regex.IsMatch(text, @"[\u0900-\u097F]") &&
                 (LanguagePicker.SelectedIndex is 0 or 1 || Regex.IsMatch(text, @"[\u0600-\u06FF]")))
             {
@@ -1683,6 +1685,13 @@ public partial class MainWindow : Window
             Foreground = System.Windows.Media.Brushes.Cyan
         };
         panel.Children.Add(rateSlider);
+        var neuralToggle = new System.Windows.Controls.CheckBox
+        {
+            Content = "Prefer bundled offline neural voice where available",
+            IsChecked = useNeuralVoice, Foreground = System.Windows.Media.Brushes.LightSkyBlue,
+            Margin = new Thickness(0, 8, 0, 5)
+        };
+        panel.Children.Add(neuralToggle);
         var voiceSave = new System.Windows.Controls.Button
         {
             Content = "SAVE VOICE PREFERENCES", Height = 37, Margin = new Thickness(0, 7, 0, 0),
@@ -1693,7 +1702,8 @@ public partial class MainWindow : Window
         {
             preferredVoice = voicePicker.SelectedItem as string;
             speechRate = (int)rateSlider.Value;
-            File.WriteAllText(VoiceSettingsFile, JsonSerializer.Serialize(new { voice = preferredVoice, rate = speechRate }));
+            useNeuralVoice = neuralToggle.IsChecked == true;
+            File.WriteAllText(VoiceSettingsFile, JsonSerializer.Serialize(new { voice = preferredVoice, rate = speechRate, neural = useNeuralVoice }));
             Respond("Voice preferences saved locally.", false);
         };
         panel.Children.Add(voiceSave);
