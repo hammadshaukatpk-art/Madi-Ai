@@ -459,6 +459,11 @@ public partial class MainWindow : Window
     private static string Normalize(string raw)
     {
         var s = raw.Trim().ToLowerInvariant();
+        // Natural wake phrases frequently include punctuation: "Madi, open Chrome".
+        // Strip them before checking the command, without requiring a fixed phrase.
+        s = Regex.Replace(s,
+            @"^(?:(?:hey|hi|hello)\s+)?(?:madi ai|madi|maadi|ماڈی|माडी)[\s,.:!?،۔]+", "");
+        s = s.Trim().TrimEnd('.', '!', '?', '،', '۔').Trim();
         // Speech models often split brand names differently in Hindi, Urdu and English.
         // Normalize common transcriptions before matching explicit application commands.
         foreach (var variant in new (string From, string To)[]
