@@ -1096,8 +1096,13 @@ public partial class MainWindow : Window
             var models = await GetInstalledModelsAsync();
             if (models.Count == 0)
             {
+                await TryStartInstalledOllamaAsync();
+                models = await GetInstalledModelsAsync(forceRefresh: true);
+            }
+            if (models.Count == 0)
+            {
                 LocalAiModuleText.Text = "◌  Local AI • disconnected";
-                Respond("Ollama is not reachable or no model is installed. Start Ollama and check Settings.");
+                Respond("The local AI engine is unavailable. Built-in app commands are still available.");
                 return;
             }
             var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
