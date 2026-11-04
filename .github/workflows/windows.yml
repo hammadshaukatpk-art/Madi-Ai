@@ -23,6 +23,11 @@ jobs:
       - name: Publish native Madi AI
         shell: pwsh
         run: dotnet publish MadiAI/MadiAI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish
+      - name: Verify local memory persistence and privacy
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-memory' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Local memory smoke test failed: $($p.ExitCode)" }
       - name: Bundle offline multilingual speech model
         shell: pwsh
         run: |
