@@ -175,11 +175,11 @@ jobs:
           if-no-files-found: error
       - name: Publish direct-download EXE release
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          tag_name: v0.2.7-development-preview
+          tag_name: v0.2.8-development-preview
           target_commitish: ${{ github.event.pull_request.head.sha }}
-          name: Madi AI development preview - offline Hindi Urdu voice and MT5 bridge (not final)
+          name: Madi AI development preview - responsive speech and existing MT5 terminal focus (not final)
           prerelease: true
           files: setup/Madi-AI-Setup.exe
           fail_on_unmatched_files: true
