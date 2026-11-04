@@ -22,13 +22,15 @@ internal static class Mt5Bridge
         DateTime Timestamp, string Broker, string Login, string Currency,
         string Balance, string Equity, string FreeMargin, string[] Positions);
 
-    internal static Snapshot? Read(out string diagnostic)
+    internal static Snapshot? Read(out string diagnostic) => ReadFromPath(StatusPath, out diagnostic);
+
+    internal static Snapshot? ReadFromPath(string path, out string diagnostic)
     {
         diagnostic = "No Madi MT5 bridge detected. Attach MadiAI_Bridge to an MT5 chart to enable live account readout.";
         try
         {
-            if (!File.Exists(StatusPath)) return null;
-            var data = File.ReadAllLines(StatusPath);
+            if (!File.Exists(path)) return null;
+            var data = File.ReadAllLines(path);
             if (data.Length < 6 || data.Length > 500)
             {
                 diagnostic = "The MT5 bridge status file is incomplete.";
