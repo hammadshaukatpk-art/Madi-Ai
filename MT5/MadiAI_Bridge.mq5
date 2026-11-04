@@ -75,7 +75,7 @@ ENUM_TIMEFRAMES ParseTimeframe(string value)
 
 void ProcessChartRequest()
 {
-   string path = "MadiAI\\\\command.txt";
+   string path = "MadiAI\\command.txt";
    if(!FileIsExist(path, FILE_COMMON)) return;
    int handle = FileOpen(path, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(handle == INVALID_HANDLE) return;
