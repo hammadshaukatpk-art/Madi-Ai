@@ -23,3 +23,11 @@ Madi AI uses local speech synthesis only. No voice input or generated speech is 
 - Whisper tiny multilingual model: https://huggingface.co/ggerganov/whisper.cpp
 
 These third-party components are independent of the Madi AI application. The original licenses, model cards and upstream attribution govern redistribution. Speech quality, multilingual accuracy and runtime speed vary with installed hardware and model choice.
+
+## Hindi and Urdu neural voices (new development preview)
+- Runtime: sherpa-onnx, https://github.com/k2-fsa/sherpa-onnx (Apache-2.0). Windows x64 precompiled runtime v2.0.1.
+- Hindi: `vits-piper-hi_IN-priyamvada-medium`, https://k2-fsa.github.io/sherpa/onnx/tts/all/Hindi/vits-piper-hi_IN-priyamvada-medium.html
+- Urdu: `vits-piper-ur_PK-fasih-medium`, https://k2-fsa.github.io/sherpa/onnx/tts/all/Urdu/vits-piper-ur_PK-fasih-medium.html
+- These models are distributed by sherpa-onnx under their upstream model licenses. Preserve model licenses and attribution from the release archives.
+- The Urdu Fasih voice is not confirmed to meet the requested female-voice requirement. Do not advertise the Urdu voice as female until a female model has passed an actual synthesis and listening test.
+- The workflow attempts to synthesize Hindi and Urdu sample audio offline on Windows. A successful CI test validates audio generation, not accent, voice gender, or user-PC playback.
