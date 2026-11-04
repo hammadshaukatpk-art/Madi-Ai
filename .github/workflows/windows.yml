@@ -52,6 +52,10 @@ jobs:
           New-Item -ItemType Directory -Path publish/models -Force | Out-Null
           Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin' -OutFile publish/models/ggml-tiny.bin -MaximumRedirection 10
           if ((Get-Item publish/models/ggml-tiny.bin).Length -lt 20000000) { throw 'Offline voice model is incomplete' }
+          # The tiny model is kept as a low-latency fallback. The base multilingual
+          # model is preferred for Urdu, Hindi, and code-switched English speech.
+          Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin' -OutFile publish/models/ggml-base.bin -MaximumRedirection 10
+          if ((Get-Item publish/models/ggml-base.bin).Length -lt 100000000) { throw 'Multilingual base speech model is incomplete' }
       - name: Bundle free offline Piper neural English voice
         shell: pwsh
         run: |
