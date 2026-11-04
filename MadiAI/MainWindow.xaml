@@ -38,7 +38,7 @@
  </Style>
 </Window.Resources>
 
-<Grid Background="#030B19">
+<Grid>
  <Grid.Background><RadialGradientBrush Center=".48,.48" RadiusX=".86" RadiusY=".95"><GradientStop Color="#0A2850" Offset="0"/><GradientStop Color="#061529" Offset=".57"/><GradientStop Color="#020713" Offset="1"/></RadialGradientBrush></Grid.Background>
  <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="102"/><RowDefinition Height="26"/></Grid.RowDefinitions>
  <Border Grid.Row="0" BorderBrush="#2077AF" BorderThickness="0,0,0,1" Background="#D906172C">
@@ -46,8 +46,8 @@
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
     <Image Source="/madi.png" Width="48" Height="48" Stretch="Uniform"/>
     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-     <TextBlock Text="MADI AI" FontSize="23" FontWeight="Bold" Foreground="#E7F9FF" CharacterSpacing="3"/>
-     <TextBlock Text="PERSONAL INTELLIGENCE SYSTEM  /  LOCAL CORE" FontSize="10" Foreground="#63D5FF" LetterSpacing="1"/>
+     <TextBlock Text="MADI AI" FontSize="23" FontWeight="Bold" Foreground="#E7F9FF"/>
+     <TextBlock Text="PERSONAL INTELLIGENCE SYSTEM  /  LOCAL CORE" FontSize="10" Foreground="#63D5FF"/>
     </StackPanel>
     <Border Background="#0D3A4C" BorderBrush="#208BB5" BorderThickness="1" CornerRadius="9" Margin="22,0,0,0" Padding="10,6" VerticalAlignment="Center">
      <TextBlock x:Name="CoreState" Text="MADI AI • STANDBY" FontSize="12" Foreground="#68E8F6"/>
@@ -107,7 +107,7 @@
   <Grid Grid.Column="1" Margin="0,0,12,0">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <StackPanel HorizontalAlignment="Center" Margin="0,6,0,0">
-    <TextBlock Text="MADI  /  INTELLIGENCE CORE" FontSize="19" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center" CharacterSpacing="1"/>
+    <TextBlock Text="MADI  /  INTELLIGENCE CORE" FontSize="19" FontWeight="Bold" Foreground="#EAF8FF" HorizontalAlignment="Center"/>
     <TextBlock Text="YOUR PERSONAL AI ASSISTANT" FontSize="11" Foreground="#69C9F1" HorizontalAlignment="Center" Margin="0,7,0,0"/>
    </StackPanel>
    <Grid Grid.Row="1" MinHeight="300" ClipToBounds="True">
