@@ -217,14 +217,14 @@
   <TextBlock DockPanel.Dock="Left" Text="▦  QUICK APPS" FontWeight="Bold" Foreground="#EAF9FF" VerticalAlignment="Center" Margin="12,0,18,0" FontSize="13"/>
   <UniformGrid Columns="10">
    <Button Style="{StaticResource TileButton}" Content="🌐 Chrome" Click="Browser_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="🌐 Edge" Click="Edge_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="📁 Explorer" Click="Explorer_Click"/>
    <Button Style="{StaticResource TileButton}" Content="▶ YouTube" Click="Youtube_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="☎ WhatsApp" Click="Whatsapp_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◈ eBay" Click="Ebay_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="◈ AliExpress" Click="Ali_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="▥ MT5" Click="Mt5_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="✉ Gmail" Click="Gmail_Click"/>
    <Button Style="{StaticResource TileButton}" Content="✦ Canva" Click="Canva_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="▣ Office" Click="Office_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="✦ ChatGPT" Click="ChatGpt_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▥ MT5" Click="Mt5_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="☎ WhatsApp" Click="Whatsapp_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="➤ Telegram" Click="Telegram_Click"/>
    <Button Style="{StaticResource TileButton}" Content="⚙ Settings" Click="Settings_Click"/>
   </UniformGrid>
  </DockPanel>
