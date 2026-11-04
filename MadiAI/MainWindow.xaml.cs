@@ -477,6 +477,13 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text.StartsWith("find file ") || text.StartsWith("locate file ") || text.StartsWith("search my files "))
+        {
+            var name = text.StartsWith("search my files ") ? text[16..] : text[10..];
+            if (name.Length < 2 || name.Length > 100) { Respond("Please specify a file name to search for.", false); return true; }
+            _ = FindLocalFilesAsync(name);
+            return true;
+        }
         if (text.StartsWith("copy ") && text.EndsWith(" to clipboard"))
         {
             var value = raw.Trim();
@@ -553,6 +560,59 @@ public partial class MainWindow : Window
             return true;
         }
         return false;
+    }
+
+    private async Task FindLocalFilesAsync(string term)
+    {
+        StatusText.Text = "Searching your Documents, Downloads, Desktop and Pictures…";
+        try
+        {
+            var results = await Task.Run(() =>
+            {
+                var roots = new[]
+                {
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+                }.Distinct(StringComparer.OrdinalIgnoreCase).Where(Directory.Exists);
+                var found = new List<string>();
+                var scanned = 0;
+                foreach (var root in roots)
+                {
+                    var folders = new Queue<(string Path, int Depth)>();
+                    folders.Enqueue((root, 0));
+                    while (folders.Count > 0 && scanned < 8000 && found.Count < 10)
+                    {
+                        var (folder, depth) = folders.Dequeue();
+                        try
+                        {
+                            foreach (var file in Directory.EnumerateFiles(folder))
+                            {
+                                if (++scanned > 8000) break;
+                                if (Path.GetFileName(file).Contains(term, StringComparison.OrdinalIgnoreCase))
+                                    found.Add(file);
+                                if (found.Count >= 10) break;
+                            }
+                            if (depth < 3)
+                            {
+                                foreach (var sub in Directory.EnumerateDirectories(folder))
+                                {
+                                    if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) == 0)
+                                        folders.Enqueue((sub, depth + 1));
+                                }
+                            }
+                        }
+                        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException) { }
+                    }
+                }
+                return found;
+            });
+            Respond(results.Count == 0
+                ? "No matching file was found in your common folders. Search is limited to 8,000 files and four folder levels."
+                : "Matching local files:\n" + string.Join("\n", results), false);
+        }
+        catch (Exception ex) { Respond("File search failed: " + ex.Message, false); }
     }
 
     private bool TryHandleMemoryCommand(string normalized, string original)
