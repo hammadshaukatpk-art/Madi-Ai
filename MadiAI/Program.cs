@@ -231,6 +231,9 @@ internal static class Program
                     (Input: "Please open Chrome", Expected: "chrome"),
                     (Input: "Can you open YouTube for me", Expected: "youtube"),
                     (Input: "open calculator", Expected: "calculator"),
+                    (Input: "open Microsoft Edge", Expected: "microsoft edge"),
+                    (Input: "open Gmail", Expected: "gmail"),
+                    (Input: "open Telegram", Expected: "telegram"),
                     (Input: "what is youtube", Expected: (string?)null),
                     (Input: "explain how to open MT5", Expected: (string?)null)
                 })
