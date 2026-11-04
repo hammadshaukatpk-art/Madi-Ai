@@ -705,6 +705,19 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        var closeApp = Regex.Match(text, @"^(?:close app|close application|close window|close)\s+(.+)$");
+        if (closeApp.Success)
+        {
+            Respond(WindowsTextAutomation.CloseVisibleApp(closeApp.Groups[1].Value), false);
+            return true;
+        }
+        var windowState = Regex.Match(text, @"^(minimize|maximize)\s+(?:app\s+|window\s+)?(.+)$");
+        if (windowState.Success)
+        {
+            Respond(WindowsTextAutomation.ChangeVisibleWindowState(
+                windowState.Groups[2].Value, windowState.Groups[1].Value == "minimize"), false);
+            return true;
+        }
         if (text is "analyze mt5" or "analyze mt5 chart" or "mt5 analysis" or
             "mt5 indicators" or "read mt5 chart" or "chart analysis")
         {
