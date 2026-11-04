@@ -1578,7 +1578,10 @@ public partial class MainWindow : Window
         }
         if (listening)
         {
-            if (speaker.State == SynthesizerState.Speaking || piperSpeaking)
+            // The top STOP control must always stop listening. Only the mic
+            // button acts as an interrupt while Madi is talking.
+            if (ReferenceEquals(sender, MicButton) &&
+                (speaker.State == SynthesizerState.Speaking || piperSpeaking))
             {
                 StopSpeech();
                 if (microphone == null && !processingAudio && !pauseForSpeech)
@@ -1586,6 +1589,7 @@ public partial class MainWindow : Window
                 Respond("Speech interrupted. I'm listening.", false);
                 return;
             }
+            StopSpeech();
             listening = false;
             voiceChunk.Stop();
             try { microphone?.StopRecording(); } catch { }
