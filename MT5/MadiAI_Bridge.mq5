@@ -47,6 +47,24 @@ void PublishStatus()
    WriteLine(file, "bid", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), digits));
    WriteLine(file, "ask", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), digits));
 
+   // Export only completed candles. The active forming candle is intentionally
+   // excluded so that chart statistics do not shift on every incoming tick.
+   MqlRates rates[];
+   int bars = CopyRates(_Symbol, _Period, 1, 80, rates);
+   if(bars > 0)
+   {
+      for(int b = 0; b < bars; b++)
+      {
+         string candle = TimeToString(rates[b].time, TIME_DATE | TIME_SECONDS) + "|" +
+                         DoubleToString(rates[b].open, digits) + "|" +
+                         DoubleToString(rates[b].high, digits) + "|" +
+                         DoubleToString(rates[b].low, digits) + "|" +
+                         DoubleToString(rates[b].close, digits) + "|" +
+                         IntegerToString(rates[b].tick_volume);
+         WriteLine(file, "candle", candle);
+      }
+   }
+
    int total = PositionsTotal();
    int limit = MathMin(total, 40);
    for(int i = 0; i < limit; i++)
