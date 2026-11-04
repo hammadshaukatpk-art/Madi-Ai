@@ -46,6 +46,23 @@ internal static class Program
                 var result = Mt5Bridge.ReadFromPath(temp, out var diagnostic);
                 if (result == null || result.Login != "12345" || result.Positions.Length != 1)
                     throw new InvalidOperationException("MT5 bridge parsing failed: " + diagnostic);
+                var candles = System.Linq.Enumerable.Range(0, 80).Select(i =>
+                {
+                    var open = 1.1000 + i * 0.0001;
+                    var close = open + (i % 3 == 0 ? -0.00005 : 0.00008);
+                    var t = new DateTime(2026, 1, 1).AddHours(i).ToString("yyyy.MM.dd HH:mm:ss");
+                    return string.Join("|", t, open.ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
+                        (Math.Max(open, close) + 0.0001).ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
+                        (Math.Min(open, close) - 0.0001).ToString("F6", System.Globalization.CultureInfo.InvariantCulture),
+                        close.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), "100");
+                }).ToArray();
+                var description = Mt5ChartAnalysis.Describe("EURUSD", "H1", candles);
+                if (!description.Contains("SMA20") || !description.Contains("SMA50") ||
+                    !description.Contains("RSI14") || !description.Contains("ATR14") ||
+                    !description.Contains("not trading advice"))
+                    throw new InvalidOperationException("MT5 local chart analysis regression.");
+                if (Mt5ChartAnalysis.TryParse("2026.01.01 00:00:00|1.1|0.9|1.0|1.1|100", out _))
+                    throw new InvalidOperationException("Malformed MT5 candle was accepted.");
                 System.IO.File.WriteAllText(temp, "updated=2001.01.01 00:00:00\nbroker=DemoBroker\nlogin=12345\ncurrency=USD\nbalance=1000\nequity=1000\nfree_margin=900\n");
                 if (Mt5Bridge.ReadFromPath(temp, out _) != null)
                     throw new InvalidOperationException("Stale MT5 status was accepted.");
