@@ -49,6 +49,43 @@ jobs:
           New-Item -ItemType Directory -Path publish/models -Force | Out-Null
           Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin' -OutFile publish/models/ggml-tiny.bin -MaximumRedirection 10
           if ((Get-Item publish/models/ggml-tiny.bin).Length -lt 20000000) { throw 'Offline voice model is incomplete' }
+      - name: Bundle free offline Piper neural voices (English and Urdu)
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $archive = Join-Path $env:RUNNER_TEMP 'piper_windows_amd64.zip'
+          $unpack = Join-Path $env:RUNNER_TEMP 'piper_unpack'
+          Invoke-WebRequest -Uri 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip' -OutFile $archive -MaximumRedirection 10
+          Expand-Archive -Path $archive -DestinationPath $unpack -Force
+          $binary = Get-ChildItem -Path $unpack -Filter 'piper.exe' -File -Recurse | Select-Object -First 1
+          if (-not $binary) { throw 'Piper Windows binary was not found in the downloaded archive' }
+          New-Item -ItemType Directory -Path publish/piper/voices -Force | Out-Null
+          Copy-Item -Path (Join-Path $binary.Directory.FullName '*') -Destination publish/piper -Recurse -Force
+          $voices = @(
+            @{ name='en_US-ljspeech-medium'; root='en/en_US/ljspeech/medium' },
+            @{ name='ur_PK-aegis_female-medium'; root='ur/ur_PK/aegis_female/medium' }
+          )
+          foreach ($voice in $voices) {
+            $base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/$($voice.root)"
+            $model = "publish/piper/voices/$($voice.name).onnx"
+            Invoke-WebRequest -Uri "$base/$($voice.name).onnx" -OutFile $model -MaximumRedirection 10
+            Invoke-WebRequest -Uri "$base/$($voice.name).onnx.json" -OutFile "$model.json" -MaximumRedirection 10
+            Invoke-WebRequest -Uri "$base/MODEL_CARD" -OutFile "publish/piper/voices/$($voice.name)-MODEL_CARD" -MaximumRedirection 10
+            if ((Get-Item $model).Length -lt 20000000) { throw "Piper voice $($voice.name) is incomplete" }
+          }
+          Copy-Item THIRD_PARTY_VOICES.md publish/THIRD_PARTY_VOICES.md
+      - name: Verify bundled offline neural English and Urdu synthesis
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path publish/piper/piper.exe).Path
+          $english = (Resolve-Path publish/piper/voices/en_US-ljspeech-medium.onnx).Path
+          $urdu = (Resolve-Path publish/piper/voices/ur_PK-aegis_female-medium.onnx).Path
+          $wav = Join-Path $env:RUNNER_TEMP 'madi-neural-en.wav'
+          'Hello, I am Madi, your offline assistant.' | & $exe --model $english --output_file $wav
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wav) -or (Get-Item $wav).Length -lt 3000) { throw 'English Piper synthesis failed' }
+          $wavUrdu = Join-Path $env:RUNNER_TEMP 'madi-neural-ur.wav'
+          'السلام علیکم، میں مادی ہوں۔' | & $exe --model $urdu --output_file $wavUrdu
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wavUrdu) -or (Get-Item $wavUrdu).Length -lt 3000) { throw 'Urdu Piper synthesis failed' }
       - name: Verify offline speech engine
         shell: pwsh
         run: |
