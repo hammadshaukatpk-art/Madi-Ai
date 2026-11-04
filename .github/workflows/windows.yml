@@ -134,6 +134,15 @@ jobs:
           if (-not (Test-Path $log)) { throw 'Dashboard smoke log missing' }
           Get-Content $log
           if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Dashboard did not load' }
+          $image = Join-Path $env:TEMP 'madi-actual-ui.png'
+          if (-not (Test-Path $image)) { throw 'Actual WPF dashboard screenshot was not captured' }
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Copy-Item $image artifacts/Madi-AI-Actual-UI.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Madi-AI-Actual-Windows-UI
+          path: artifacts/Madi-AI-Actual-UI.png
+          if-no-files-found: error
       - name: Bundle app payload
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
@@ -177,9 +186,11 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v0.2.8-development-preview
+          tag_name: v0.2.9-development-preview
           target_commitish: ${{ github.event.pull_request.head.sha }}
-          name: Madi AI development preview - responsive speech and existing MT5 terminal focus (not final)
+          name: Madi AI development preview - voice startup, command routing and actual UI screenshot (not final)
           prerelease: true
-          files: setup/Madi-AI-Setup.exe
+          files: |
+            setup/Madi-AI-Setup.exe
+            artifacts/Madi-AI-Actual-UI.png
           fail_on_unmatched_files: true
