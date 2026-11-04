@@ -1205,6 +1205,11 @@ public partial class MainWindow : Window
             currentChatCancellation = null;
             chatPending = false;
             CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+            if (queuedQuestions.Count > 0 && unlocked)
+            {
+                var next = queuedQuestions.Dequeue();
+                _ = AskLocalAiAsync(next);
+            }
         }
     }
 
