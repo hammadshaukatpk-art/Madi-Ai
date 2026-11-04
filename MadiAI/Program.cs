@@ -112,6 +112,7 @@ internal static class Program
                 foreach (var sample in new[] { ("hi", "नमस्ते, मैं माडी हूँ।"), ("ur", "السلام علیکم، میں ماڈی ہوں۔") })
                 {
                     var wav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-indic-smoke-" + sample.Item1 + ".wav");
+                    var normalized = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-indic-whisper-" + sample.Item1 + ".wav");
                     try
                     {
                         if (!IndicVoice.SynthesizeToFile(sample.Item2, wav, sample.Item1))
@@ -119,12 +120,22 @@ internal static class Program
                         using var audio = new NAudio.Wave.WaveFileReader(wav);
                         if (audio.TotalTime.TotalSeconds < 0.5)
                             throw new InvalidOperationException(sample.Item1 + " synthesis output was too short.");
+                        // Sherpa VITS voices output their native sample rate; Whisper
+                        // requires 16 kHz mono PCM. Convert before recognition.
+                        using (var source = new NAudio.Wave.AudioFileReader(wav))
+                        using (var converter = new NAudio.Wave.MediaFoundationResampler(source,
+                            new NAudio.Wave.WaveFormat(16000, 16, 1)))
+                            NAudio.Wave.WaveFileWriter.CreateWaveFile(normalized, converter);
                         using var processor = recognizer.CreateBuilder().WithLanguage(sample.Item1).Build();
-                        var transcript = TranscribeSmokeSample(processor, wav).GetAwaiter().GetResult();
+                        var transcript = TranscribeSmokeSample(processor, normalized).GetAwaiter().GetResult();
                         if (string.IsNullOrWhiteSpace(transcript))
                             throw new InvalidOperationException(sample.Item1 + " recognition returned no text.");
                     }
-                    finally { try { System.IO.File.Delete(wav); } catch { } }
+                    finally
+                    {
+                        try { System.IO.File.Delete(wav); } catch { }
+                        try { System.IO.File.Delete(normalized); } catch { }
+                    }
                 }
             }
             catch (Exception ex) { System.Console.Error.WriteLine(ex); Environment.ExitCode = 12; }
