@@ -70,6 +70,7 @@ public partial class MainWindow : Window
     private string pendingChromeService = "Google";
     private bool voicePreparing;
     private bool chatPending;
+    private readonly Queue<string> queuedQuestions = new();
     private CancellationTokenSource? currentChatCancellation;
     private bool userCancelledChat;
     private bool installingLocalAi;
