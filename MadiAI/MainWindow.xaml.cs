@@ -638,6 +638,7 @@ public partial class MainWindow : Window
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
             var answer = new StringBuilder();
+            var spokenChars = 0;
             ConversationText.AppendText("Madi: ");
             var lastUiUpdate = DateTime.UtcNow;
             string? line;
@@ -655,6 +656,18 @@ public partial class MainWindow : Window
                     {
                         answer.Append(part);
                         ConversationText.AppendText(part);
+                        // Start speaking as soon as the first complete sentence
+                        // arrives instead of waiting for the whole model answer.
+                        if (spokenChars == 0 && answer.Length >= 35)
+                        {
+                            var soFar = answer.ToString();
+                            var sentenceEnd = soFar.IndexOfAny(new[] { '.', '!', '?', '۔', '؟' });
+                            if (sentenceEnd >= 24 && sentenceEnd < 260)
+                            {
+                                Speak(soFar[..(sentenceEnd + 1)].Trim());
+                                spokenChars = sentenceEnd + 1;
+                            }
+                        }
                         if ((DateTime.UtcNow - lastUiUpdate).TotalMilliseconds > 120)
                         {
                             ConversationText.ScrollToEnd();
@@ -675,7 +688,16 @@ public partial class MainWindow : Window
             if (chatHistory.Count > 100) chatHistory.RemoveRange(0, chatHistory.Count - 100);
             SaveConversationHistory();
             StatusText.Text = result;
-            Speak(result);
+            if (spokenChars == 0) Speak(result);
+            else
+            {
+                var remainder = result[spokenChars..].Trim();
+                if (remainder.Length > 0)
+                {
+                    try { speaker.SpeakAsync(remainder); }
+                    catch (InvalidOperationException) { /* Missing voice; text remains available. */ }
+                }
+            }
         }
         catch (HttpRequestException)
         {
