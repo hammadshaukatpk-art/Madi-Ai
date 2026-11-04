@@ -36,5 +36,16 @@ After unlocking, Madi AI attempts to start listening automatically. The START/ST
 - **Trading and e-commerce:** MT5 launch, eBay/AliExpress websites and WhatsApp Web are **not** autonomous trading, listing, ordering, messaging or calling integrations. They must not be presented as completed features.
 - **UI:** holographic head brightness, circular rings, neon panels and dashboard proportions were updated against the supplied reference. The procedural head is **not yet a pixel-identical reproduction** of the supplied design.
 
+## Current development branch: improved local assistant
+The draft branch **fix/local-ai-detection-memory-voice-ui** replaces the fixed-size Canvas dashboard with a responsive three-column WPF layout. It keeps the repository's original Madi branding assets and dark neon visual identity, adds a scrolling conversation panel, a compact system telemetry card and an automatically scaled holographic core.
+
+- **Conversation:** Uses an already-installed Ollama model, streaming text and beginning Windows speech output after the first complete sentence. If Ollama is installed but stopped, Madi attempts to start its local service. This is not guaranteed zero-latency speech.
+- **Memory:** "remember that ...", "show memory", "forget ...", "clear memory" work locally. Memories are opt-in and saved to the local Windows MadiAI profile as memory.json. Common secrets are refused. This is not a semantic database or automatic memory extraction.
+- **Natural actions:** A local model can classify some natural commands into a strict allowlist. Unsupported actions remain chat, not arbitrary shell execution.
+- **Additional controls:** Focus visible apps, list visible windows, clipboard text, find files in common folders, system status and read-only MT5 process detection. MT5 account access and real trading are **not** connected.
+- **Validation:** Windows CI tests local memory persistence, voice engine initialization, the actual WPF dashboard opening, installer opening and install/uninstall.
+
+**This branch is not the final all-features JARVIS installer.** Exact reference-image fidelity, high-quality multilingual offline voice output, full arbitrary Windows app automation and verified broker-connected MT5 controls remain outstanding.
+
 ## Developer build
 On Windows with .NET 8 SDK, generate assets with `python tools/generate_assets.py` (Pillow required), then build the WPF app. The CI workflow builds both application and installer automatically.
