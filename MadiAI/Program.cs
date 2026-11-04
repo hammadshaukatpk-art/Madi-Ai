@@ -220,6 +220,24 @@ internal static class Program
                     throw new InvalidOperationException("Dashboard command composer or conversation panel is clipped.");
                 System.IO.File.AppendAllText(log,
                     $"Dashboard layout: composer={composer.ActualWidth:F0}, mic={microphone.ActualWidth:F0}, panel={panels.ActualWidth:F0}" + Environment.NewLine);
+                // Publish an ACTUAL WPF-rendered dashboard image for review.
+                // Never substitute a generative design mockup for the built app.
+                if (win.FindName("GateOverlay") is System.Windows.FrameworkElement gate)
+                    gate.Visibility = Visibility.Collapsed;
+                win.UpdateLayout();
+                var width = (int)Math.Ceiling(win.ActualWidth);
+                var height = (int)Math.Ceiling(win.ActualHeight);
+                if (width > 0 && height > 0)
+                {
+                    var render = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                        width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    render.Render(win);
+                    var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(render));
+                    using var output = System.IO.File.Create(
+                        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-actual-ui.png"));
+                    png.Save(output);
+                }
             };
             var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
             timer.Tick += (_, _) =>
