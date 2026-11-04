@@ -204,7 +204,14 @@ internal static class Program
                 picker.SelectedIndex = 2;
                 System.IO.File.AppendAllText(log, "Main window loaded; language selection: " + picker.SelectedIndex + Environment.NewLine);
                 picker.SelectedIndex = 0;
+                // Reproduce the user's 1339x698 desktop rather than testing only
+                // a large 1440x850 developer window.
+                win.Width = 1339;
+                win.Height = 698;
                 win.UpdateLayout();
+                var nav = (System.Windows.Controls.Button?)win.FindName("NavHome");
+                if (nav == null || nav.ActualHeight < 30)
+                    throw new InvalidOperationException("Dashboard navigation is missing or clipped.");
                 var composer = (System.Windows.Controls.TextBox?)win.FindName("CommandBox");
                 var microphone = (System.Windows.Controls.Button?)win.FindName("MicButton");
                 var panels = (System.Windows.Controls.TabControl?)win.FindName("RightPanelTabs");
