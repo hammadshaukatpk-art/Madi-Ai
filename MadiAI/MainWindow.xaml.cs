@@ -297,7 +297,12 @@ public partial class MainWindow : Window
             speaker.Rate = speechRate;
             speaker.SpeakAsync(text);
         }
-        catch { /* Missing Windows voice is nonfatal; visual status still works. */ }
+        catch (Exception ex)
+        {
+            // A voice failure must be visible rather than silently losing the answer.
+            StatusText.Text = "Speech output failed: " + ex.Message;
+            AppendConversation("System", "Voice playback unavailable. The text reply is shown above.");
+        }
     }
     private void Respond(string message, bool speak = true)
     {
