@@ -21,10 +21,12 @@ internal static class IndicVoice
     private static OfflineTts? hindiEngine;
     private static OfflineTts? urduEngine;
     private static string Root => Path.Combine(AppContext.BaseDirectory, "sherpa");
+    // Pick the synthesis language from the actual script, NOT the microphone
+    // recognition selector. Selecting Urdu must never force Latin English
+    // sentences through an Urdu phoneme model (garbled speech).
     private static string Language(string text, string? selected) =>
         Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
-        Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" :
-        selected is "hi" or "ur" ? selected : "";
+        Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" : "";
 
     private static string Folder(string language) => Path.Combine(Root, "voices",
         language == "hi" ? "vits-piper-hi_IN-priyamvada-medium" : "vits-piper-ur_PK-fasih-medium");
