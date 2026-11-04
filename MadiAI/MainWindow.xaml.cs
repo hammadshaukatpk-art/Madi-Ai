@@ -482,6 +482,25 @@ public partial class MainWindow : Window
                 Respond("Okay, I'm here when you need me.", false);
                 return;
             }
+            if (text is "clear chat" or "clear conversation" or "delete chat history" or "delete conversation history")
+            {
+                var confirmed = System.Windows.MessageBox.Show(
+                    "Permanently clear Madi AI's locally saved conversation history on this PC?\n\nSaved memories and routines are separate and will not be deleted.",
+                    "Madi AI • Clear conversation", System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+                if (confirmed == System.Windows.MessageBoxResult.Yes)
+                {
+                    userCancelledChat = true;
+                    currentChatCancellation?.Cancel();
+                    StopSpeech();
+                    chatHistory.Clear();
+                    SaveConversationHistory();
+                    ConversationText.Clear();
+                    StatusText.Text = "Conversation history cleared from this PC.";
+                }
+                else Respond("Conversation deletion cancelled.", false);
+                return;
+            }
             if (TryHandleMemoryCommand(text, raw)) return;
             if (TryHandleRoutineCommand(text, raw)) return;
             if (TryHandleExtendedWindowsCommand(text, raw)) return;
