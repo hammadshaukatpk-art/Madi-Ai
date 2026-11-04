@@ -55,6 +55,13 @@ internal static class Mt5Bridge
                 diagnostic = "The MT5 bridge has stopped updating. Open the terminal and check its Expert Advisor.";
                 return null;
             }
+            // A running and authenticated terminal may temporarily lose broker connectivity.
+            // Do not present stale broker prices or balances as live in that state.
+            if (values.TryGetValue("terminal_connected", out var connected) && connected == "0")
+            {
+                diagnostic = "MetaTrader 5 is open, but its terminal is disconnected from the broker. Check the connection indicator in MT5.";
+                return null;
+            }
             string Get(string key) => values.TryGetValue(key, out var value) ? value : "unavailable";
             var positions = data.Where(x => x.StartsWith("position=", StringComparison.OrdinalIgnoreCase))
                 .Select(x => x["position=".Length..]).Take(40).ToArray();
