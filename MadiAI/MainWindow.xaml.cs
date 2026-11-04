@@ -614,9 +614,7 @@ public partial class MainWindow : Window
             if (launchIntent && (text.Contains("excel"))) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
             if (launchIntent && (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर")))
             {
-                if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
-                    Respond("Opening MetaTrader 5.");
-                else Respond("MetaTrader 5 wasn't found in the Start Menu. You can select its terminal64.exe using Open App.");
+                OpenExistingMt5();
                 return;
             }
             if (text.Contains("screenshot") || text.Contains("اسکرین شاٹ") || text.Contains("स्क्रीनशॉट")) { TakeScreenshot(); return; }
@@ -717,9 +715,7 @@ public partial class MainWindow : Window
             case "open_settings": Open("ms-settings:"); Respond("Opening Windows Settings."); return true;
             case "open_explorer": Open("explorer.exe"); Respond("Opening File Explorer."); return true;
             case "open_mt5":
-                if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
-                    Respond("Opening MetaTrader 5.");
-                else Respond("MT5 was not found in Start Menu. Use the application picker to locate terminal64.exe.");
+                OpenExistingMt5();
                 return true;
             case "mt5_status": return TryHandleExtendedWindowsCommand("mt5 status", "mt5 status");
             case "search_web" when !string.IsNullOrWhiteSpace(plan.Argument):
@@ -971,6 +967,36 @@ public partial class MainWindow : Window
     {
         try { Respond(await WindowsTextAutomation.TypeIntoAsync(app, content)); }
         catch (Exception ex) { Respond("Windows typing failed: " + ex.Message); }
+    }
+
+    private void OpenExistingMt5()
+    {
+        // Prefer the terminal the user has ALREADY launched and logged into.
+        // Starting a second MT5 terminal could open a different account/profile.
+        foreach (var name in new[] { "terminal64", "terminal" })
+        {
+            foreach (var terminal in Process.GetProcessesByName(name))
+            {
+                using (terminal)
+                {
+                    try
+                    {
+                        if (terminal.MainWindowHandle == IntPtr.Zero) continue;
+                        ShowWindow(terminal.MainWindowHandle, 9);
+                        var focused = SetForegroundWindow(terminal.MainWindowHandle);
+                        Respond(focused
+                            ? "Switched to your already running MetaTrader 5 terminal."
+                            : "MetaTrader 5 is running, but Windows prevented me from focusing its window.");
+                        return;
+                    }
+                    catch (InvalidOperationException) { }
+                    catch (System.ComponentModel.Win32Exception) { }
+                }
+            }
+        }
+        if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
+            Respond("Opening the installed MetaTrader 5 terminal.");
+        else Respond("MetaTrader 5 is not currently running and no Start Menu shortcut was found.");
     }
 
     private async Task InstallMt5BridgeAsync()
