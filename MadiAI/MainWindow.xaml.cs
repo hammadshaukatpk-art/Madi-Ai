@@ -484,6 +484,51 @@ public partial class MainWindow : Window
             if (s.StartsWith(prefix)) s = s[prefix.Length..];
         return s;
     }
+    private bool TryHandleInstantCommand(string normalized)
+    {
+        // Known, harmless desktop actions must NOT call Ollama or its six-second
+        // action planner. Only imperative sentences are eligible; questions
+        // about apps still go to normal conversation.
+        var match = Regex.Match(normalized,
+            @"^(?:(?:please|can you|could you|would you|will you|i want you to|i need you to)\s+)*(?:open|launch|start|run|show|kholo|khol do|खोलो|کھولو)\s+(?:(?:the|my)\s+)?(?<app>.+?)(?:\s+(?:please|for me|now))?$",
+            RegexOptions.IgnoreCase);
+        if (!match.Success) return false;
+        var app = Regex.Replace(match.Groups["app"].Value.Trim(), @"\s+", " ");
+        switch (app)
+        {
+            case "youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", normalized); return true;
+            case "whatsapp": case "whatsapp web":
+                OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", normalized); return true;
+            case "google": case "chrome": case "browser": case "google chrome":
+                OpenGoogleWithProfile(normalized); return true;
+            case "mt5": case "metatrader": case "metatrader 5": case "meta trader": case "meta trader 5":
+                OpenExistingMt5(); return true;
+            case "calculator": case "calc": Open("calc.exe"); Respond("Opening Calculator."); return true;
+            case "notepad": Open("notepad.exe"); Respond("Opening Notepad."); return true;
+            case "explorer": case "file explorer": case "files":
+                Open("explorer.exe"); Respond("Opening File Explorer."); return true;
+            case "settings": case "windows settings":
+                Open("ms-settings:"); Respond("Opening Windows Settings."); return true;
+            case "downloads": case "downloads folder":
+                Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
+                Respond("Opening Downloads."); return true;
+            case "documents": case "documents folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                Respond("Opening Documents."); return true;
+            case "desktop": case "desktop folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+                Respond("Opening Desktop."); return true;
+            case "pictures": case "pictures folder":
+                Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
+                Respond("Opening Pictures."); return true;
+            case "canva": OpenWebWithProfile("Canva", "https://www.canva.com", normalized); return true;
+            case "ebay": OpenWebWithProfile("eBay", "https://www.ebay.com", normalized); return true;
+            case "aliexpress": OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", normalized); return true;
+            case "chatgpt": Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return true;
+            default: return false;
+        }
+    }
+
     private void Execute(string raw)
     {
         if (!unlocked || string.IsNullOrWhiteSpace(raw)) return;
@@ -494,6 +539,7 @@ public partial class MainWindow : Window
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (TryHandleInstantCommand(text)) return;
             if (text is "stop" or "cancel response" or "stop answering" or "stop madi")
             {
                 userCancelledChat = true;
@@ -692,7 +738,8 @@ public partial class MainWindow : Window
                 if (models.Count > 0)
                 {
                     var model = ChooseResponsiveModel(models);
-                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    StatusText.Text = "Checking a safe local action...";
                     var plan = await LocalActionPlanner.PlanAsync(http, model, original, timeout.Token);
                     if (plan != null && TryPerformPlannedAction(plan)) return;
                 }
