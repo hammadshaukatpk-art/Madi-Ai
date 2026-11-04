@@ -4,7 +4,7 @@
  <SolidColorBrush x:Key="Panel" Color="#071629"/>
  <SolidColorBrush x:Key="Blue" Color="#19CFFF"/>
  <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#E8041328"/><Setter Property="BorderBrush" Value="#158CD6"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="15"/><Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#087BFF" BlurRadius="16" ShadowDepth="0" Opacity=".32"/></Setter.Value></Setter></Style>
- <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="17"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
+ <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="14"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="11,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
  <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
  <Style x:Key="DarkLanguageItem" TargetType="ComboBoxItem">
@@ -40,7 +40,7 @@
 
 <Grid>
  <Grid.Background><RadialGradientBrush Center=".48,.48" RadiusX=".86" RadiusY=".95"><GradientStop Color="#0A2850" Offset="0"/><GradientStop Color="#061529" Offset=".57"/><GradientStop Color="#020713" Offset="1"/></RadialGradientBrush></Grid.Background>
- <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="102"/><RowDefinition Height="26"/></Grid.RowDefinitions>
+ <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="*"/><RowDefinition Height="122"/><RowDefinition Height="26"/></Grid.RowDefinitions>
  <Border Grid.Row="0" BorderBrush="#2077AF" BorderThickness="0,0,0,1" Background="#D906172C">
   <Grid Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -148,10 +148,10 @@
   </Border>
  </Grid>
  <Border Grid.Row="2" Margin="12,0,12,0" Background="#D9081930" BorderBrush="#1E659C" BorderThickness="1" CornerRadius="14">
-  <Grid Margin="14,10"><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Grid Margin="14,10"><Grid.RowDefinitions><RowDefinition Height="44"/><RowDefinition Height="*"/></Grid.RowDefinitions>
    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="68"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-    <TextBox x:Name="CommandBox" Height="39" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="14" Padding="12,7" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type a message or a command"/>
-    <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="22" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="8,0" Click="Voice_Click"/>
+    <TextBox x:Name="CommandBox" Height="42" Background="#0C2744" Foreground="#EAF9FF" BorderBrush="#278DCC" BorderThickness="1" FontSize="14" Padding="12,7" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type a message or a command"/>
+    <Button x:Name="MicButton" Grid.Column="1" Content="MIC" FontSize="12" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="8,0" Click="Voice_Click"/>
     <Button Grid.Column="2" Content="SEND  ➤" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
    </Grid>
    <UniformGrid Grid.Row="1" Columns="5" Margin="0,8,0,0">
