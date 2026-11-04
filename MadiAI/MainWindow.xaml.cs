@@ -253,7 +253,14 @@ public partial class MainWindow : Window
             piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
             return;
         }
-        try { speaker.SpeakAsync(text); } catch (InvalidOperationException) { }
+        // Preserve neural voice identity across streamed sentences.
+        // Windows TTS queues a continuation if it is already speaking.
+        if (speaker.State == SynthesizerState.Speaking)
+        {
+            try { speaker.SpeakAsync(text); } catch (InvalidOperationException) { }
+            return;
+        }
+        Speak(text);
     }
 
     private void Speak(string text)
@@ -365,7 +372,8 @@ public partial class MainWindow : Window
         try
         {
             var installed = FindOllama();
-            if (installed == null || Process.GetProcessesByName("ollama").Length > 0) return;
+            // A running desktop Ollama process does not guarantee its API server is up.
+            if (installed == null) return;
             Process.Start(new ProcessStartInfo(installed, "serve")
             {
                 UseShellExecute = false,
@@ -1583,7 +1591,7 @@ public partial class MainWindow : Window
             ListenStatus.Text = "● Error";
             CoreState.Text = "VOICE UNAVAILABLE";
             VoiceModuleText.Text = "◌  Voice • check microphone";
-            Respond("Voice setup failed: " + ex.Message, false);
+            Respond("Voice setup failed: " + ex.Message);
         }
         finally
         {
@@ -1717,7 +1725,7 @@ public partial class MainWindow : Window
                 }
                 processingAudio = true;
                 try { await TranscribeAsync(file); }
-                catch (Exception ex) { Respond("Voice recognition error: " + ex.Message, false); }
+                catch (Exception ex) { Respond("Voice recognition error: " + ex.Message); }
                 finally
                 {
                     processingAudio = false;
@@ -1760,7 +1768,7 @@ public partial class MainWindow : Window
             StatusText.Text = "Heard: " + recognized;
             Execute(recognized);
         }
-        else StatusText.Text = "I couldn't clearly hear that. Please try again or select English, Urdu or Hindi.";
+        else Respond("I didn't catch that clearly. Please repeat your request.");
         ListenStatus.Text = chatPending ? "● Responding" : listening ? "● Listening" : "● Standby";
         CoreState.Text = chatPending ? "MADI AI • RESPONDING" : listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
