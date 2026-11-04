@@ -15,6 +15,24 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--smoke-memory", StringComparer.OrdinalIgnoreCase))
+        {
+            var folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-memory-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                System.IO.Directory.CreateDirectory(folder);
+                var memory = new LocalMemoryStore(folder);
+                if (!memory.TryRemember("I prefer Roman Urdu", out _)) throw new InvalidOperationException("Memory write failed.");
+                if (memory.TryRemember("My password is 123456", out _)) throw new InvalidOperationException("Sensitive memory accepted.");
+                var restored = new LocalMemoryStore(folder);
+                if (!restored.Items.Contains("I prefer Roman Urdu")) throw new InvalidOperationException("Memory persistence failed.");
+                if (restored.Forget("Roman Urdu") != 1) throw new InvalidOperationException("Memory deletion failed.");
+                if (new LocalMemoryStore(folder).Items.Count != 0) throw new InvalidOperationException("Memory deletion was not persisted.");
+            }
+            catch (Exception ex) { System.Console.Error.WriteLine(ex); Environment.ExitCode = 8; }
+            finally { try { System.IO.Directory.Delete(folder, true); } catch { } }
+            return;
+        }
         if (args.Contains("--smoke-voice", StringComparer.OrdinalIgnoreCase))
         {
             try
