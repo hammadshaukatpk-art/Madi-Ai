@@ -19,14 +19,17 @@ internal static class PiperVoice
         System.Text.RegularExpressions.Regex.IsMatch(text, @"[\u0600-\u06FF]")
             ? "ur_PK-aegis_female-medium.onnx" : "en_US-ljspeech-medium.onnx");
 
-    public static bool IsAvailableFor(string text)
+    public static bool IsAvailableFor(string text, string? selectedLanguage = null)
     {
+        if (IndicVoice.IsAvailable(text, selectedLanguage)) return true;
         var model = ModelFor(text);
         return File.Exists(Executable) && File.Exists(model) && File.Exists(model + ".json");
     }
 
-    public static async Task<bool> SpeakAsync(string text, CancellationToken cancellationToken)
+    public static async Task<bool> SpeakAsync(string text, CancellationToken cancellationToken, string? selectedLanguage = null)
     {
+        if (IndicVoice.IsAvailable(text, selectedLanguage))
+            return await IndicVoice.SpeakAsync(text, cancellationToken, selectedLanguage);
         if (!IsAvailableFor(text) || string.IsNullOrWhiteSpace(text)) return false;
         var model = ModelFor(text);
         var wav = Path.Combine(Path.GetTempPath(), "madi-piper-" + Guid.NewGuid().ToString("N") + ".wav");
