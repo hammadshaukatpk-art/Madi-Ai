@@ -92,6 +92,16 @@ public partial class MainWindow : Window
         GatePrompt.Text = File.Exists(AuthFile) ? "Enter your private secret code" : "Secret code not configured";
         GateHelp.Text = File.Exists(AuthFile) ? "Use the code you created in Madi AI Setup. It is stored only on this PC." : "Please run Madi AI Setup to create your secret code before using the app.";
         Loaded += (_, _) => { Animate(); SecretBox.Focus(); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (!unlocked) return;
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L)
+            { CommandBox.Focus(); CommandBox.SelectAll(); e.Handled = true; }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
+            { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
+            else if (e.Key == Key.Escape && speaker.State == SynthesizerState.Speaking)
+            { speaker.SpeakAsyncCancelAll(); e.Handled = true; }
+        };
         stats.Tick += (_, _) => UpdateStats();
         voiceChunk.Tick += (_, _) => { voiceChunk.Stop(); try { microphone?.StopRecording(); } catch { } };
         stats.Start();
@@ -122,7 +132,9 @@ public partial class MainWindow : Window
             speaker.SpeakAsyncCancelAll();
             // Windows may not have Urdu/Hindi voices. Prefer an installed matching voice.
             var lang = LanguagePicker.SelectedIndex;
-            var target = lang == 2 ? "ur" : lang == 3 ? "hi" : "en";
+            var target = lang == 2 ? "ur" : lang == 3 ? "hi" : lang == 1 ? "en" :
+                Regex.IsMatch(text, @"[\u0600-\u06FF]") ? "ur" :
+                Regex.IsMatch(text, @"[\u0900-\u097F]") ? "hi" : "en";
             var voice = speaker.GetInstalledVoices().FirstOrDefault(v => v.Enabled && v.VoiceInfo.Culture.TwoLetterISOLanguageName == target);
             if (voice != null) speaker.SelectVoice(voice.VoiceInfo.Name);
             speaker.SpeakAsync(text);
@@ -308,6 +320,12 @@ public partial class MainWindow : Window
         try
         {
             if (TrySelectPendingChromeProfile(text)) return;
+            if (text is "stop speaking" or "stop talking" or "be quiet" or "chup ho jao" or "चुप हो जाओ" or "خاموش ہو جاؤ")
+            {
+                speaker.SpeakAsyncCancelAll();
+                Respond("Okay, I'm here when you need me.", false);
+                return;
+            }
             if (TryHandleMemoryCommand(text, raw)) return;
             if (TryHandleExtendedWindowsCommand(text, raw)) return;
             // Prevent questions such as "What is MT5?" or "Explain YouTube"
