@@ -705,6 +705,12 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text is "analyze mt5" or "analyze mt5 chart" or "mt5 analysis" or
+            "mt5 indicators" or "read mt5 chart" or "chart analysis")
+        {
+            Respond(Mt5Bridge.Describe("analysis"), false);
+            return true;
+        }
         if (text is "keep me company" or "talk to me sometimes" or "proactive on" or "enable check ins")
         {
             companionEnabled = true;
