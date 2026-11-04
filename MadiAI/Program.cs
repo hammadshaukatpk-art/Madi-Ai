@@ -15,6 +15,27 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--smoke-routines", StringComparer.OrdinalIgnoreCase))
+        {
+            var folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-routines-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                System.IO.Directory.CreateDirectory(folder);
+                var routines = new LocalRoutines(folder);
+                if (!routines.Save("morning", "open google; open notepad").StartsWith("Saved"))
+                    throw new InvalidOperationException("Routine creation failed.");
+                if (routines.Save("unsafe", "delete files; shutdown computer").StartsWith("Saved"))
+                    throw new InvalidOperationException("Unsafe routine was accepted.");
+                var restored = new LocalRoutines(folder);
+                if (restored.Get("morning")?.Length != 2)
+                    throw new InvalidOperationException("Routine persistence failed.");
+                if (!restored.Delete("morning") || new LocalRoutines(folder).Get("morning") != null)
+                    throw new InvalidOperationException("Routine deletion failed.");
+            }
+            catch (Exception ex) { System.Console.Error.WriteLine(ex); Environment.ExitCode = 10; }
+            finally { try { System.IO.Directory.Delete(folder, true); } catch { } }
+            return;
+        }
         if (args.Contains("--smoke-mt5-bridge", StringComparer.OrdinalIgnoreCase))
         {
             var temp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-mt5-test-" + Guid.NewGuid().ToString("N") + ".txt");
