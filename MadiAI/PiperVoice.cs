@@ -39,6 +39,7 @@ internal static class PiperVoice
                     WorkingDirectory = PiperDirectory,
                     Arguments = "--model \"" + model + "\" --output_file \"" + wav + "\"",
                     RedirectStandardInput = true,
+                    StandardInputEncoding = System.Text.Encoding.UTF8,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
