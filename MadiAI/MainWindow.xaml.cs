@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private bool listening;
     private bool unlocked;
     private bool processingAudio;
+    private bool pauseForSpeech;
     private WhisperFactory? voiceFactory;
     private int stopRequested;
     private DateTime captureStarted;
@@ -219,6 +220,11 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (listening && microphone != null && !processingAudio)
+            {
+                pauseForSpeech = true;
+                try { microphone.StopRecording(); } catch { pauseForSpeech = false; }
+            }
             StopSpeech();
             if (PiperVoice.IsAvailableFor(text) &&
                 !Regex.IsMatch(text, @"[\u0900-\u097F]") &&
@@ -1531,6 +1537,17 @@ public partial class MainWindow : Window
                 try { waveWriter?.Dispose(); microphone?.Dispose(); } catch { }
                 waveWriter = null; microphone = null;
                 if (file == null) return;
+                if (pauseForSpeech)
+                {
+                    TryDelete(file);
+                    var speechDeadline = DateTime.UtcNow.AddSeconds(45);
+                    while (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking) &&
+                           DateTime.UtcNow < speechDeadline)
+                        await Task.Delay(100);
+                    pauseForSpeech = false;
+                    if (listening) StartRecording();
+                    return;
+                }
                 if (!listening || firstSpeech == DateTime.MinValue)
                 {
                     TryDelete(file);
