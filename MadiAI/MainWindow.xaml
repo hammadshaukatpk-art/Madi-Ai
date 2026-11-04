@@ -188,23 +188,22 @@
    </UniformGrid></StackPanel>
   </Border>
   <Border Width="478" Height="358" Canvas.Left="1150" Canvas.Top="295" Style="{StaticResource PanelStyle}">
-   <StackPanel>
-    <TextBlock Style="{StaticResource GlowText}" Text="✦  My Capabilities" Margin="0,0,0,11"/>
-    <TextBlock Text="✓  Launch supported Windows apps" Margin="6,8"/>
-    <TextBlock Text="✓  Search web and open online services" Margin="6,8"/>
-    <TextBlock Text="◌  English / Hindi / Urdu transcription*" Margin="6,8"/>
-    <TextBlock Text="✓  File selection and screenshots" Margin="6,8"/>
-    <TextBlock Text="◌  MT5 trading automation — not enabled" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  eBay and AliExpress — not enabled" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  WhatsApp calls — not supported" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="◌  Offline AI chat — enable in Settings" Margin="6,8" Foreground="#9EADC1"/>
-    <TextBlock Text="* Free local speech engine; accuracy varies by microphone" Foreground="#6C9EBA" FontSize="14" Margin="6,9"/>
-   </StackPanel>
+   <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+     <TextBlock Style="{StaticResource GlowText}" Text="✦  Madi Conversation" FontSize="19"/>
+     <TextBlock Text="Type or speak naturally • local AI via Ollama" Foreground="#84B5D1" FontSize="13" Margin="2,5,0,0"/>
+    </StackPanel>
+    <TextBox x:Name="ConversationText" Grid.Row="1" Text="" IsReadOnly="True" TextWrapping="Wrap"
+      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+      Background="#07182E" Foreground="#E5F6FF" BorderBrush="#1D658B" BorderThickness="1"
+      Padding="12" FontFamily="Segoe UI" FontSize="15" SelectionBrush="#2078C0"/>
+   </Grid>
   </Border>
   <Border Width="870" Height="74" Canvas.Left="445" Canvas.Top="689" Background="#F0061732" CornerRadius="40" BorderBrush="#29BFFF" BorderThickness="2"><Border.Effect><DropShadowEffect Color="#058BFF" BlurRadius="22" ShadowDepth="0" Opacity=".65"/></Border.Effect>
    <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <TextBox x:Name="CommandBox" Grid.Column="0" Background="Transparent" BorderThickness="0" Foreground="#DDEEFF" FontSize="18" Padding="22,21" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type or speak a command" Text=""/>
+    <TextBox x:Name="CommandBox" Grid.Column="0" Background="Transparent" BorderThickness="0" Foreground="#DDEEFF" FontSize="18" Padding="22,21" VerticalContentAlignment="Center" KeyDown="CommandBox_KeyDown" ToolTip="Type a message or speak to Madi AI" Text=""/>
      <TextBlock Grid.Column="0" Text="Say a command..." Foreground="#8AABC4" FontSize="19" VerticalAlignment="Center" Margin="24,0,0,0" IsHitTestVisible="False">
       <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=CommandBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
      </TextBlock>
