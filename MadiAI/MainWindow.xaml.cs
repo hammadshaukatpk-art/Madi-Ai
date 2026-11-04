@@ -621,10 +621,11 @@ public partial class MainWindow : Window
                 var result = new DataTable().Compute(expression, null);
                 Respond("The result is " + result); return;
             }
-            if (text.Contains("time") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
-            if (text.Contains("date") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
+            if (Regex.IsMatch(text, @"\b(?:time|clock)\b") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
+            if (Regex.IsMatch(text, @"\bdate\b") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
             if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
-            if (text is "hi" or "hello" or "hey" or "سلام" or "السلام علیکم" or "नमस्ते")
+            if (text is "hi" or "hello" or "hey" or "سلام" or "السلام علیکم" or "नमस्ते" ||
+                Regex.IsMatch(text, @"^(?:hello|hi|hey|salam|assalam|السلام|سلام|नमस्ते)[\s,!?.،۔]+(?:madi|maadi|माडी|ماڈی|there|assistant)?[\s,!?.،۔]*$"))
             { Respond("Hello! Would you like to chat, or would you like me to do something on your computer?"); return; }
             if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
             {
@@ -634,9 +635,25 @@ public partial class MainWindow : Window
                 else Respond("Cancelled.");
                 return;
             }
-            _ = RouteUnknownAsync(raw, text);
+            _ = RouteRequestWithErrorReportingAsync(raw, text);
         }
         catch (Exception ex) { Respond("I couldn't complete that action: " + ex.Message); }
+    }
+
+    // Never leave a typed or spoken request silently unanswered if asynchronous
+    // routing fails after Execute has returned to the UI event loop.
+    private async Task RouteRequestWithErrorReportingAsync(string original, string normalized)
+    {
+        try { await RouteUnknownAsync(original, normalized); }
+        catch (OperationCanceledException)
+        {
+            if (!userCancelledChat) Respond("That request timed out. I'm ready for another instruction.");
+        }
+        catch (Exception ex)
+        {
+            CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
+            Respond("I couldn't finish your request: " + ex.Message);
+        }
     }
 
     private async Task RouteUnknownAsync(string original, string normalized)
