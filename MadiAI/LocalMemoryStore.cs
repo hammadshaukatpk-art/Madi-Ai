@@ -59,6 +59,15 @@ internal sealed class LocalMemoryStore
         return true;
     }
 
+    public bool RemoveExact(string fact)
+    {
+        var match = items.FindIndex(x => x.Equals(fact, StringComparison.Ordinal));
+        if (match < 0) return false;
+        items.RemoveAt(match);
+        Save();
+        return true;
+    }
+
     public int Forget(string phrase)
     {
         phrase = phrase.Trim();
