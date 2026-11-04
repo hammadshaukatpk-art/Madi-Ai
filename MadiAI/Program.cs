@@ -23,6 +23,11 @@ internal static class Program
                 System.IO.Directory.CreateDirectory(folder);
                 if (!WindowsTextAutomation.HasValidNativeLayout)
                     throw new InvalidOperationException("Win64 SendInput structure layout is invalid.");
+                if (!WindowsTextAutomation.IsProtectedWindow("terminal64", "EURUSD") ||
+                    !WindowsTextAutomation.IsProtectedWindow("other", "MetaTrader 5 - Demo") ||
+                    !WindowsTextAutomation.IsProtectedWindow("MadiAI", "Madi AI") ||
+                    WindowsTextAutomation.IsProtectedWindow("notepad", "Notes"))
+                    throw new InvalidOperationException("Protected desktop app safeguards failed.");
                 var routines = new LocalRoutines(folder);
                 if (!routines.Save("morning", "open google; open notepad").StartsWith("Saved"))
                     throw new InvalidOperationException("Routine creation failed.");
