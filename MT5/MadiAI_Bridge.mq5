@@ -20,7 +20,10 @@ string CleanValue(string input)
 
 void WriteLine(const int file, const string key, const string value)
 {
-   FileWriteString(file, key + "=" + CleanValue(value) + "\r\n");
+   // Preserve the field separator for structured position and candle records.
+   // Free-text account fields still have control characters removed.
+   string safe = (key == "position" || key == "candle") ? value : CleanValue(value);
+   FileWriteString(file, key + "=" + safe + "\r\n");
 }
 
 void PublishStatus()
