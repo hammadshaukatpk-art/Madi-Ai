@@ -38,6 +38,7 @@ void PublishStatus()
    }
 
    WriteLine(file, "updated", TimeToString(TimeLocal(), TIME_DATE | TIME_SECONDS));
+   WriteLine(file, "terminal_connected", TerminalInfoInteger(TERMINAL_CONNECTED) != 0 ? "1" : "0");
    WriteLine(file, "broker", AccountInfoString(ACCOUNT_SERVER));
    WriteLine(file, "login", IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)));
    WriteLine(file, "currency", AccountInfoString(ACCOUNT_CURRENCY));
@@ -45,7 +46,8 @@ void PublishStatus()
    WriteLine(file, "equity", DoubleToString(AccountInfoDouble(ACCOUNT_EQUITY), 2));
    WriteLine(file, "free_margin", DoubleToString(AccountInfoDouble(ACCOUNT_MARGIN_FREE), 2));
    WriteLine(file, "chart_symbol", _Symbol);
-   WriteLine(file, "chart_timeframe", EnumToString(_Period));
+   // EnumToString returns PERIOD_H1; report H1 to match the command parser.
+   WriteLine(file, "chart_timeframe", StringSubstr(EnumToString(_Period), 7));
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    WriteLine(file, "bid", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_BID), digits));
    WriteLine(file, "ask", DoubleToString(SymbolInfoDouble(_Symbol, SYMBOL_ASK), digits));
