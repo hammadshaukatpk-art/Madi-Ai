@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     private readonly SpeechSynthesizer speaker = new();
     private readonly DispatcherTimer stats = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly DispatcherTimer companionTimer = new() { Interval = TimeSpan.FromMinutes(20) };
-    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(14) };
+    private readonly DispatcherTimer voiceChunk = new() { Interval = TimeSpan.FromSeconds(12) };
     private readonly string profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MadiAI");
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private string AuthFile => Path.Combine(profile, "unlock.json");
@@ -37,7 +37,7 @@ public partial class MainWindow : Window
     {
         get
         {
-            var bundled = Path.Combine(AppContext.BaseDirectory, "models", "ggml-tiny.bin");
+            var bundled = Path.Combine(AppContext.BaseDirectory, "models", "ggml-base.bin");
             return File.Exists(bundled) && new FileInfo(bundled).Length > 20_000_000
                 ? bundled
                 : Path.Combine(profile, "models", "ggml-tiny.bin");
@@ -614,7 +614,8 @@ public partial class MainWindow : Window
             if (text.Contains("time") || text.Contains("وقت") || text.Contains("समय")) { Respond("The time is " + DateTime.Now.ToString("h:mm tt")); return; }
             if (text.Contains("date") || text.Contains("تاریخ") || text.Contains("तारीख")) { Respond("Today is " + DateTime.Now.ToString("dddd, MMMM d")); return; }
             if (text.Contains("how are you") || text.Contains("کیسے ہو") || text.Contains("कैसे हो")) { Respond("I'm ready to help, friend. What would you like to do?"); return; }
-            if (text is "hi" or "hello" or "hey" or "سلام" or "नमस्ते") { Respond("Hello, friend. I'm listening."); return; }
+            if (text is "hi" or "hello" or "hey" or "سلام" or "السلام علیکم" or "नमस्ते")
+            { Respond("Hello! Would you like to chat, or would you like me to do something on your computer?"); return; }
             if (text.Contains("shutdown") || text.Contains("restart") || text.Contains("بند کرو") || text.Contains("रीस्टार्ट"))
             {
                 var restart = text.Contains("restart") || text.Contains("ری اسٹارٹ") || text.Contains("रीस्टार्ट");
@@ -648,7 +649,7 @@ public partial class MainWindow : Window
                     var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
                         ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
                         ?? models[0];
-                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(22));
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(6));
                     var plan = await LocalActionPlanner.PlanAsync(http, model, original, timeout.Token);
                     if (plan != null && TryPerformPlannedAction(plan)) return;
                 }
@@ -669,26 +670,26 @@ public partial class MainWindow : Window
             case "open_youtube": OpenWebWithProfile("YouTube", "https://www.youtube.com", "open youtube"); return true;
             case "open_downloads":
                 Open(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
-                Respond("Opening Downloads.", false); return true;
-            case "open_documents": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)); Respond("Opening Documents.", false); return true;
-            case "open_desktop": Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)); Respond("Opening Desktop.", false); return true;
-            case "open_pictures": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)); Respond("Opening Pictures.", false); return true;
-            case "open_calculator": Open("calc.exe"); Respond("Opening Calculator.", false); return true;
-            case "open_notepad": Open("notepad.exe"); Respond("Opening Notepad.", false); return true;
-            case "open_settings": Open("ms-settings:"); Respond("Opening Windows Settings.", false); return true;
-            case "open_explorer": Open("explorer.exe"); Respond("Opening File Explorer.", false); return true;
+                Respond("Opening Downloads."); return true;
+            case "open_documents": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)); Respond("Opening Documents."); return true;
+            case "open_desktop": Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)); Respond("Opening Desktop."); return true;
+            case "open_pictures": Open(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)); Respond("Opening Pictures."); return true;
+            case "open_calculator": Open("calc.exe"); Respond("Opening Calculator."); return true;
+            case "open_notepad": Open("notepad.exe"); Respond("Opening Notepad."); return true;
+            case "open_settings": Open("ms-settings:"); Respond("Opening Windows Settings."); return true;
+            case "open_explorer": Open("explorer.exe"); Respond("Opening File Explorer."); return true;
             case "open_mt5":
                 if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
-                    Respond("Opening MetaTrader 5.", false);
-                else Respond("MT5 was not found in Start Menu. Use the application picker to locate terminal64.exe.", false);
+                    Respond("Opening MetaTrader 5.");
+                else Respond("MT5 was not found in Start Menu. Use the application picker to locate terminal64.exe.");
                 return true;
             case "mt5_status": return TryHandleExtendedWindowsCommand("mt5 status", "mt5 status");
             case "search_web" when !string.IsNullOrWhiteSpace(plan.Argument):
                 Open("https://www.google.com/search?q=" + Uri.EscapeDataString(plan.Argument));
-                Respond("Searching the web for " + plan.Argument, false); return true;
+                Respond("Searching the web for " + plan.Argument); return true;
             case "search_youtube" when !string.IsNullOrWhiteSpace(plan.Argument):
                 Open("https://www.youtube.com/results?search_query=" + Uri.EscapeDataString(plan.Argument));
-                Respond("Searching YouTube for " + plan.Argument, false); return true;
+                Respond("Searching YouTube for " + plan.Argument); return true;
             case "open_app" when !string.IsNullOrWhiteSpace(plan.Argument):
                 LaunchInstalledApp(plan.Argument); return true;
             case "focus_app" when !string.IsNullOrWhiteSpace(plan.Argument):
@@ -752,39 +753,39 @@ public partial class MainWindow : Window
         var closeApp = Regex.Match(text, @"^(?:close app|close application|close window|close)\s+(.+)$");
         if (closeApp.Success)
         {
-            Respond(WindowsTextAutomation.CloseVisibleApp(closeApp.Groups[1].Value), false);
+            Respond(WindowsTextAutomation.CloseVisibleApp(closeApp.Groups[1].Value));
             return true;
         }
         var windowState = Regex.Match(text, @"^(minimize|maximize)\s+(?:app\s+|window\s+)?(.+)$");
         if (windowState.Success)
         {
             Respond(WindowsTextAutomation.ChangeVisibleWindowState(
-                windowState.Groups[2].Value, windowState.Groups[1].Value == "minimize"), false);
+                windowState.Groups[2].Value, windowState.Groups[1].Value == "minimize"));
             return true;
         }
         if (text is "analyze mt5" or "analyze mt5 chart" or "mt5 analysis" or
             "mt5 indicators" or "read mt5 chart" or "chart analysis")
         {
-            Respond(Mt5Bridge.Describe("analysis"), false);
+            Respond(Mt5Bridge.Describe("analysis"));
             return true;
         }
         if (text is "keep me company" or "talk to me sometimes" or "proactive on" or "enable check ins")
         {
             companionEnabled = true;
             File.WriteAllText(CompanionFile, "on");
-            Respond("I'll offer an occasional check-in while you're active at your PC. Say 'stop check-ins' anytime.", false);
+            Respond("I'll offer an occasional check-in while you're active at your PC. Say 'stop check-ins' anytime.");
             return true;
         }
         if (text is "stop check-ins" or "proactive off" or "disable check ins")
         {
             companionEnabled = false;
             File.WriteAllText(CompanionFile, "off");
-            Respond("Proactive check-ins are now off.", false);
+            Respond("Proactive check-ins are now off.");
             return true;
         }
         if (text is "mt5 price" or "mt5 quote" or "mt5 chart status" or "mt5 current chart")
         {
-            Respond(Mt5Bridge.Describe("price"), false);
+            Respond(Mt5Bridge.Describe("price"));
             return true;
         }
         var typeMatch = Regex.Match(raw.Trim(),
@@ -800,7 +801,7 @@ public partial class MainWindow : Window
         {
             var symbol = chartRequest.Groups["symbol"].Value;
             var period = chartRequest.Groups["period"].Success ? chartRequest.Groups["period"].Value : "H1";
-            Respond(Mt5Bridge.RequestChart(symbol, period), false);
+            Respond(Mt5Bridge.RequestChart(symbol, period));
             return true;
         }
         if (text is "connect mt5" or "connect metatrader" or "install mt5 bridge" or "setup mt5 bridge")
@@ -815,13 +816,13 @@ public partial class MainWindow : Window
             var topic = text.Contains("position") || text.Contains("trades") || text.Contains("orders")
                 ? "positions" : text.Contains("balance") || text.Contains("equity") || text.Contains("account")
                     ? "account" : "status";
-            Respond(Mt5Bridge.Describe(topic), false);
+            Respond(Mt5Bridge.Describe(topic));
             return true;
         }
         if (text.StartsWith("find file ") || text.StartsWith("locate file ") || text.StartsWith("search my files "))
         {
             var name = text.StartsWith("search my files ") ? text[16..] : text.StartsWith("locate file ") ? text[12..] : text[10..];
-            if (name.Length < 2 || name.Length > 100) { Respond("Please specify a file name to search for.", false); return true; }
+            if (name.Length < 2 || name.Length > 100) { Respond("Please specify a file name to search for."); return true; }
             _ = FindLocalFilesAsync(name);
             return true;
         }
@@ -833,7 +834,7 @@ public partial class MainWindow : Window
             if (start >= 0 && end > start + 5)
             {
                 System.Windows.Clipboard.SetText(value.Substring(start + 5, end - start - 5));
-                Respond("Copied the text to your clipboard.", false);
+                Respond("Copied the text to your clipboard.");
                 return true;
             }
         }
@@ -841,7 +842,7 @@ public partial class MainWindow : Window
         {
             var value = System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() : "";
             Respond(value.Length == 0 ? "There is no text in the clipboard." :
-                "Clipboard text: " + (value.Length > 600 ? value[..600] + "…" : value), false);
+                "Clipboard text: " + (value.Length > 600 ? value[..600] + "…" : value));
             return true;
         }
         if (text is "running apps" or "show running apps" or "what apps are open" or "list open windows")
@@ -852,7 +853,7 @@ public partial class MainWindow : Window
                 catch { return false; }
             }).Select(p => p.ProcessName).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).Take(25).ToArray();
             Respond(apps.Length == 0 ? "I couldn't find any visible app windows." :
-                "Visible running apps: " + string.Join(", ", apps), false);
+                "Visible running apps: " + string.Join(", ", apps));
             return true;
         }
         if (text.StartsWith("switch to ") || text.StartsWith("focus ") || text.StartsWith("bring ") && text.EndsWith(" to front"))
@@ -860,7 +861,7 @@ public partial class MainWindow : Window
             var target = text.StartsWith("switch to ") ? text[10..] :
                 text.StartsWith("focus ") ? text[6..] : text[6..^9];
             target = target.Trim();
-            if (target.Length < 2 || target.Length > 60) { Respond("Tell me which running app to focus.", false); return true; }
+            if (target.Length < 2 || target.Length > 60) { Respond("Tell me which running app to focus."); return true; }
             Process? match = null;
             foreach (var process in Process.GetProcesses())
             {
@@ -873,10 +874,10 @@ public partial class MainWindow : Window
                 }
                 catch { }
             }
-            if (match == null) { Respond("I couldn't find an open window matching " + target, false); return true; }
+            if (match == null) { Respond("I couldn't find an open window matching " + target); return true; }
             ShowWindow(match.MainWindowHandle, 9);
             var focused = SetForegroundWindow(match.MainWindowHandle);
-            Respond(focused ? "Switched to " + match.ProcessName : "Found " + match.ProcessName + ", but Windows blocked focus switching.", false);
+            Respond(focused ? "Switched to " + match.ProcessName : "Found " + match.ProcessName + ", but Windows blocked focus switching.");
             return true;
         }
         if (text is "mt5 status" or "metatrader status" or "is mt5 running" or "check mt5")
@@ -887,19 +888,19 @@ public partial class MainWindow : Window
             var live = Mt5Bridge.Read(out var bridgeDiagnostic);
             Respond(live != null ? Mt5Bridge.Describe("status") :
                 terminals.Length == 0 ? "MetaTrader 5 is not currently running. " + bridgeDiagnostic :
-                $"Detected {terminals.Length} MetaTrader terminal process(es). " + bridgeDiagnostic, false);
+                $"Detected {terminals.Length} MetaTrader terminal process(es). " + bridgeDiagnostic);
             return true;
         }
         if (text is "system information" or "system status" or "pc status" or "computer status")
         {
             UpdateStats();
-            Respond($"Windows system status: CPU {CpuValue.Text}, RAM {RamValue.Text}, system disk used {DiskValue.Text}.", false);
+            Respond($"Windows system status: CPU {CpuValue.Text}, RAM {RamValue.Text}, system disk used {DiskValue.Text}.");
             return true;
         }
         if (text is "open desktop" or "desktop folder")
         {
             Open(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
-            Respond("Opened your Desktop folder.", false);
+            Respond("Opened your Desktop folder.");
             return true;
         }
         return false;
@@ -930,8 +931,8 @@ public partial class MainWindow : Window
 
     private async Task TypeIntoAppAsync(string app, string content)
     {
-        try { Respond(await WindowsTextAutomation.TypeIntoAsync(app, content), false); }
-        catch (Exception ex) { Respond("Windows typing failed: " + ex.Message, false); }
+        try { Respond(await WindowsTextAutomation.TypeIntoAsync(app, content)); }
+        catch (Exception ex) { Respond("Windows typing failed: " + ex.Message); }
     }
 
     private async Task InstallMt5BridgeAsync()
@@ -939,9 +940,9 @@ public partial class MainWindow : Window
         try
         {
             StatusText.Text = "Preparing the local MetaTrader bridge…";
-            Respond(await Mt5BridgeInstaller.InstallAsync(), false);
+            Respond(await Mt5BridgeInstaller.InstallAsync());
         }
-        catch (Exception ex) { Respond("MT5 bridge setup failed: " + ex.Message, false); }
+        catch (Exception ex) { Respond("MT5 bridge setup failed: " + ex.Message); }
     }
 
     private async Task FindLocalFilesAsync(string term)
@@ -992,9 +993,9 @@ public partial class MainWindow : Window
             });
             Respond(results.Count == 0
                 ? "No matching file was found in your common folders. Search is limited to 8,000 files and four folder levels."
-                : "Matching local files:\n" + string.Join("\n", results), false);
+                : "Matching local files:\n" + string.Join("\n", results));
         }
-        catch (Exception ex) { Respond("File search failed: " + ex.Message, false); }
+        catch (Exception ex) { Respond("File search failed: " + ex.Message); }
     }
 
     private bool TryHandleMemoryCommand(string normalized, string original)
@@ -1004,29 +1005,29 @@ public partial class MainWindow : Window
         {
             Respond(memory.Items.Count == 0
                 ? "I haven't saved any personal memories yet. Say 'remember that ...' to save a preference."
-                : "Your private saved memories:\n" + string.Join("\n", memory.Items.Select((item, i) => $"{i + 1}. {item}")), false);
+                : "Your private saved memories:\n" + string.Join("\n", memory.Items.Select((item, i) => $"{i + 1}. {item}")));
             return true;
         }
         if (normalized is "clear memory" or "delete all memories" or "forget everything")
         {
             var answer = System.Windows.MessageBox.Show("Permanently delete all Madi AI saved memories on this PC?", "Confirm local memory deletion",
                 System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
-            if (answer == System.Windows.MessageBoxResult.Yes) { memory.Clear(); Respond("All Madi AI saved memories were deleted from this PC.", false); }
-            else Respond("Memory deletion cancelled.", false);
+            if (answer == System.Windows.MessageBoxResult.Yes) { memory.Clear(); Respond("All Madi AI saved memories were deleted from this PC."); }
+            else Respond("Memory deletion cancelled.");
             return true;
         }
         var remember = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:remember that|remember|yaad rakh(?:o)?(?: ke)?|याद रखो(?: कि)?|یاد رکھو(?: کہ)?)\s+(.+)$");
         if (remember.Success)
         {
             memory.TryRemember(remember.Groups[1].Value, out var feedback);
-            Respond(feedback, false);
+            Respond(feedback);
             return true;
         }
         var forget = Regex.Match(original.Trim(), @"(?i)^(?:madi(?: ai)?[, ]+)?(?:please )?(?:forget that|forget|bhool jao|भूल जाओ|بھول جاؤ)\s+(.+)$");
         if (forget.Success)
         {
             var count = memory.Forget(forget.Groups[1].Value);
-            Respond(count == 0 ? "I couldn't find a matching saved memory." : $"Removed {count} matching saved memory item(s).", false);
+            Respond(count == 0 ? "I couldn't find a matching saved memory." : $"Removed {count} matching saved memory item(s).");
             return true;
         }
         return false;
@@ -1047,10 +1048,10 @@ public partial class MainWindow : Window
 
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("I am still answering your previous question.", false); return; }
+        if (chatPending) { Respond("I am still answering your previous question."); return; }
         chatPending = true;
         userCancelledChat = false;
-        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        currentChatCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         try
         {
             CoreState.Text = "MADI AI • THINKING";
@@ -1058,7 +1059,7 @@ public partial class MainWindow : Window
             if (models.Count == 0)
             {
                 LocalAiModuleText.Text = "◌  Local AI • disconnected";
-                Respond("Ollama is not reachable or no model is installed. Start Ollama and check Settings.", false);
+                Respond("Ollama is not reachable or no model is installed. Start Ollama and check Settings.");
                 return;
             }
             var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
@@ -1073,8 +1074,8 @@ public partial class MainWindow : Window
             foreach (var entry in chatHistory.TakeLast(12))
                 messages.Add(new { role = entry.Role, content = entry.Content });
             messages.Add(new { role = "user", content = question });
-            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 240 } });
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            var payload = JsonSerializer.Serialize(new { model, stream = true, messages, options = new { num_predict = 160, num_ctx = 2048 }, keep_alive = "30m" });
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
             using var request = new HttpRequestMessage(HttpMethod.Post, "http://127.0.0.1:11434/api/chat")
             { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, currentChatCancellation.Token);
@@ -1126,7 +1127,7 @@ public partial class MainWindow : Window
             ConversationText.AppendText("\n\n");
             ConversationText.ScrollToEnd();
             var result = answer.ToString().Trim();
-            if (result.Length == 0) { Respond("The local model returned an empty answer.", false); return; }
+            if (result.Length == 0) { Respond("The local model returned an empty answer."); return; }
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", result));
             if (chatHistory.Count > 100) chatHistory.RemoveRange(0, chatHistory.Count - 100);
@@ -1145,21 +1146,21 @@ public partial class MainWindow : Window
         catch (HttpRequestException)
         {
             LocalAiModuleText.Text = "◌  Local AI • disconnected";
-            Respond("Ollama is not reachable. Start Ollama and try again.", false);
+            Respond("Ollama is not reachable. Start Ollama and try again.");
         }
         catch (TaskCanceledException)
         {
             ConversationText.AppendText("\n\n");
-            if (!userCancelledChat) Respond("The local model took too long. Try a smaller model in Settings.", false);
+            if (!userCancelledChat) Respond("The local model took too long. Try a smaller model in Settings.");
         }
         catch (OperationCanceledException)
         {
             ConversationText.AppendText("\n\n");
-            if (!userCancelledChat) Respond("The local model request was interrupted.", false);
+            if (!userCancelledChat) Respond("The local model request was interrupted.");
         }
         catch (Exception ex)
         {
-            Respond("Local AI error: " + ex.Message, false);
+            Respond("Local AI error: " + ex.Message);
         }
         finally
         {
@@ -1583,7 +1584,7 @@ public partial class MainWindow : Window
             }
             double rms = samples > 0 ? Math.Sqrt((double)energy / samples) / 32768.0 : 0;
             var now = DateTime.UtcNow;
-            if (rms > 0.014)
+            if (rms > 0.009)
             {
                 speechFrames++;
                 if (speechFrames >= 2)
@@ -1594,8 +1595,8 @@ public partial class MainWindow : Window
             }
             else if (firstSpeech == DateTime.MinValue) speechFrames = 0;
             if (firstSpeech != DateTime.MinValue &&
-                (now - firstSpeech).TotalMilliseconds >= 150 &&
-                (now - lastSpeech).TotalMilliseconds >= 550)
+                (now - firstSpeech).TotalMilliseconds >= 450 &&
+                (now - lastSpeech).TotalMilliseconds >= 900)
             {
                 if (Interlocked.Exchange(ref stopRequested, 1) == 0)
                     Dispatcher.BeginInvoke(new Action(() => { try { microphone?.StopRecording(); } catch { } }));
@@ -1635,7 +1636,7 @@ public partial class MainWindow : Window
                     processingAudio = false;
                     TryDelete(file);
                     // Don't record the assistant's own spoken response.
-                    var deadline = DateTime.UtcNow.AddSeconds(10);
+                    var deadline = DateTime.UtcNow.AddSeconds(45);
                     while (listening && (chatPending || (speaker.State == SynthesizerState.Speaking || piperSpeaking)) && DateTime.UtcNow < deadline)
                         await Task.Delay(100);
                     if (listening) StartRecording();
@@ -1661,11 +1662,18 @@ public partial class MainWindow : Window
                 transcript.Append(segment.Text).Append(' ');
             return transcript.ToString().Trim();
         });
-        if (!string.IsNullOrWhiteSpace(recognized))
+        // Whisper can hallucinate stock phrases when the microphone receives noise.
+        // Reject these instead of executing unrelated commands.
+        var ignored = new[] { "thank you for watching", "thanks for watching",
+            "subscribe to my channel", "you", "bye bye", "subtitles by" };
+        if (!string.IsNullOrWhiteSpace(recognized) &&
+            recognized.Length >= 2 &&
+            !ignored.Any(x => recognized.Trim(' ', '.', '!', '،', '۔').Equals(x, StringComparison.OrdinalIgnoreCase)))
         {
             StatusText.Text = "Heard: " + recognized;
             Execute(recognized);
         }
+        else StatusText.Text = "I couldn't clearly hear that. Please try again or select English, Urdu or Hindi.";
         ListenStatus.Text = listening ? "● Listening" : "● Standby";
         CoreState.Text = listening ? "MADI AI • LISTENING" : "MADI AI • ONLINE";
     }
