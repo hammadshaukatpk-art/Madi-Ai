@@ -227,6 +227,8 @@ public partial class MainWindow : Window
     {
         if (!unlocked || string.IsNullOrWhiteSpace(raw)) return;
         var text = Normalize(raw);
+        if (text is "stop" or "stop speaking" or "be quiet" or "chup" or "chup ho jao" or "چپ" or "बस करो")
+        { speaker.SpeakAsyncCancelAll(); StatusText.Text = "Stopped speaking."; return; }
         CommandBox.Text = "";
         try
         {
@@ -358,7 +360,7 @@ public partial class MainWindow : Window
 
     private async Task AskLocalAiAsync(string question)
     {
-        if (chatPending) { Respond("I'm answering your previous request. Please try again.", false); return; }
+        if (chatPending) { Respond("I am still processing your previous question. Say stop to interrupt."); return; }
         chatPending = true;
         try
         {
