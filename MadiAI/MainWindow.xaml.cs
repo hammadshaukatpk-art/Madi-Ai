@@ -1678,7 +1678,7 @@ public partial class MainWindow : Window
         };
         if (TryFindResource("DarkLanguageCombo") is Style voiceComboStyle) voicePicker.Style = voiceComboStyle;
         panel.Children.Add(voicePicker);
-        panel.Children.Add(new TextBlock { Text = "Speech speed", FontSize = 13, Margin = new Thickness(0, 9, 0, 4) });
+        panel.Children.Add(new TextBlock { Text = "Windows speech speed (neural voice uses its own pace)", FontSize = 13, Margin = new Thickness(0, 9, 0, 4) });
         var rateSlider = new System.Windows.Controls.Slider
         {
             Minimum = -2, Maximum = 4, TickFrequency = 1, IsSnapToTickEnabled = true, Value = speechRate,
