@@ -15,14 +15,20 @@ internal static class PiperVoice
 {
     private static string PiperDirectory => Path.Combine(AppContext.BaseDirectory, "piper");
     private static string Executable => Path.Combine(PiperDirectory, "piper.exe");
-    private static string Model => Path.Combine(PiperDirectory, "voices", "en_US-lessac-medium.onnx");
+    private static string ModelFor(string text) => Path.Combine(PiperDirectory, "voices",
+        System.Text.RegularExpressions.Regex.IsMatch(text, @"[\u0600-\u06FF]")
+            ? "ur_PK-aegis_female-medium.onnx" : "en_US-ljspeech-medium.onnx");
 
-    public static bool IsAvailable => File.Exists(Executable) && File.Exists(Model) &&
-                                      File.Exists(Model + ".json");
+    public static bool IsAvailableFor(string text)
+    {
+        var model = ModelFor(text);
+        return File.Exists(Executable) && File.Exists(model) && File.Exists(model + ".json");
+    }
 
     public static async Task<bool> SpeakAsync(string text, CancellationToken cancellationToken)
     {
-        if (!IsAvailable || string.IsNullOrWhiteSpace(text)) return false;
+        if (!IsAvailableFor(text) || string.IsNullOrWhiteSpace(text)) return false;
+        var model = ModelFor(text);
         var wav = Path.Combine(Path.GetTempPath(), "madi-piper-" + Guid.NewGuid().ToString("N") + ".wav");
         try
         {
@@ -31,7 +37,7 @@ internal static class PiperVoice
                 StartInfo = new ProcessStartInfo(Executable)
                 {
                     WorkingDirectory = PiperDirectory,
-                    Arguments = "--model \"" + Model + "\" --output_file \"" + wav + "\"",
+                    Arguments = "--model \"" + model + "\" --output_file \"" + wav + "\"",
                     RedirectStandardInput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
