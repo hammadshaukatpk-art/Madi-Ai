@@ -88,17 +88,7 @@ jobs:
         shell: pwsh
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          $version = 'v1.13.8'
-          $archive = Join-Path $env:RUNNER_TEMP 'sherpa-win.tar.bz2'
-          $extract = Join-Path $env:RUNNER_TEMP 'sherpa-extract'
-          New-Item -ItemType Directory -Path $extract -Force | Out-Null
-          Invoke-WebRequest -Uri "https://github.com/k2-fsa/sherpa-onnx/releases/download/$version/sherpa-onnx-$version-win-x64-shared-MD-Release.tar.bz2" -OutFile $archive -MaximumRedirection 10
-          tar -xjf $archive -C $extract
-          if ($LASTEXITCODE -ne 0) { throw 'Sherpa Windows runtime extraction failed' }
-          $exe = Get-ChildItem -Path $extract -Recurse -Filter 'sherpa-onnx-offline-tts.exe' -File | Select-Object -First 1
-          if (-not $exe) { throw 'Sherpa offline TTS executable missing from runtime' }
           New-Item -ItemType Directory -Path publish/sherpa/voices -Force | Out-Null
-          Copy-Item -Path (Join-Path $exe.Directory.FullName '*') -Destination publish/sherpa -Recurse -Force
           $models = @('vits-piper-hi_IN-priyamvada-medium', 'vits-piper-ur_PK-fasih-medium')
           foreach ($name in $models) {
             $archive = Join-Path $env:RUNNER_TEMP "$name.tar.bz2"
@@ -113,19 +103,8 @@ jobs:
       - name: Verify real offline Hindi and Urdu synthesis
         shell: pwsh
         run: |
-          $exe = (Resolve-Path publish/sherpa/sherpa-onnx-offline-tts.exe).Path
-          $samples = @(
-            @{ model='vits-piper-hi_IN-priyamvada-medium'; voice='hi_IN-priyamvada-medium.onnx'; text='नमस्ते, मैं माडी हूँ।'; lang='hi' },
-            @{ model='vits-piper-ur_PK-fasih-medium'; voice='ur_PK-fasih-medium.onnx'; text='السلام علیکم، میں ماڈی ہوں۔'; lang='ur' }
-          )
-          foreach ($sample in $samples) {
-            $folder = (Resolve-Path "publish/sherpa/voices/$($sample.model)").Path
-            $wav = Join-Path $env:RUNNER_TEMP "madi-$($sample.lang).wav"
-            & $exe "--vits-model=$folder/$($sample.voice)" "--vits-tokens=$folder/tokens.txt" "--vits-data-dir=$folder/espeak-ng-data" "--output-filename=$wav" $sample.text
-            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wav) -or (Get-Item $wav).Length -lt 3000) {
-              throw "Offline $($sample.lang) synthesis failed"
-            }
-          }
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-indic-voice' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Unicode Hindi/Urdu synthesis failed: $($p.ExitCode)" }
       - name: Verify offline speech engine
         shell: pwsh
         run: |
