@@ -538,7 +538,8 @@ public partial class MainWindow : Window
             if (TryHandleExtendedWindowsCommand(text, raw)) return;
             // Prevent questions such as "What is MT5?" or "Explain YouTube"
             // from accidentally launching programs merely by naming them.
-            bool launchIntent = Regex.IsMatch(text, @"^(?:open|launch|start|run|show|bring up|go to|kholo|khol do|खोलो|کھولو)\b") ||
+            bool launchIntent = Regex.IsMatch(text,
+                @"^(?:(?:please|can you|could you|would you|will you|i want you to|i need you to)\s+)*(?:open|launch|start|run|show|bring up|go to|kholo|khol do|खोलो|کھولو)\b") ||
                 text.Contains(" open karo") || text.EndsWith(" kholo") || text.EndsWith(" खोलो") ||
                 text.EndsWith(" کھولو") || text.EndsWith(" khol do");
             // Route searches before generic website launchers; a search request
@@ -1145,11 +1146,15 @@ public partial class MainWindow : Window
                 Respond("The local AI engine is unavailable. Built-in app commands are still available.");
                 return;
             }
+            // Favor a responsive installed local model unless the user explicitly
+            // selected a different one. A model name in /api/tags alone does not
+            // mean that an answer is ready.
             var model = models.FirstOrDefault(m => m.Equals(selectedModel, StringComparison.OrdinalIgnoreCase))
+                ?? models.FirstOrDefault(m => m.Equals("llama3.2:1b", StringComparison.OrdinalIgnoreCase))
                 ?? models.FirstOrDefault(m => m.Equals("llama3.2:latest", StringComparison.OrdinalIgnoreCase))
-                ?? models.FirstOrDefault(m => m.StartsWith("llama3.2", StringComparison.OrdinalIgnoreCase))
                 ?? models[0];
-            LocalAiModuleText.Text = "●  Local AI • " + model;
+            LocalAiModuleText.Text = "●  Local AI • " + model + " (responding)";
+            StatusText.Text = "Madi is generating a reply locally. Please wait...";
             var messages = new List<object>
             {
                 new { role = "system", content = "You are Madi AI, a conversational Windows desktop assistant. Speak naturally, briefly and warmly in the same language and script as the user, including Roman Urdu. You have no independent awareness or feelings. Never claim an action succeeded unless the application confirmed it. Ask one clear question if a command is ambiguous. Never invent PC access, trading results, app controls, or live information. The user can manage memory with remember that, show memory, forget, and clear memory. " + memory.BuildPrompt() }
@@ -1606,9 +1611,16 @@ public partial class MainWindow : Window
             MicButton.Content = "■";
             StartVoiceButton.Content = "STOP";
             VoiceModuleText.Text = "●  Voice • listening";
-            Respond("Listening. Speak your command.", false);
-            StopSpeech();
-            StartRecording();
+            // Speak the welcome before opening the microphone. Otherwise the
+            // assistant records its own greeting or never greets at all.
+            const string greeting = "Hello! I'm Madi AI. Would you like to chat or do something on your computer?";
+            Respond(greeting, false);
+            Speak(greeting);
+            var welcomeDeadline = DateTime.UtcNow.AddSeconds(20);
+            while (listening && (piperSpeaking || speaker.State == SynthesizerState.Speaking) &&
+                   DateTime.UtcNow < welcomeDeadline)
+                await Task.Delay(120);
+            if (listening) StartRecording();
         }
         catch (OperationCanceledException)
         {
@@ -1774,8 +1786,9 @@ public partial class MainWindow : Window
     }
     private async Task TranscribeAsync(string wavPath)
     {
-        ListenStatus.Text = "● Understanding";
-        CoreState.Text = "MADI AI • UNDERSTANDING";
+        ListenStatus.Text = "● Transcribing speech";
+        CoreState.Text = "MADI AI • TRANSCRIBING";
+        StatusText.Text = "Processing your microphone audio locally...";
         var selected = LanguagePicker.SelectedIndex;
         var language = selected == 1 ? "en" : selected == 2 ? "ur" : selected == 3 ? "hi" : "auto";
         var factory = voiceFactory ?? throw new InvalidOperationException("Speech engine not initialized.");
@@ -1784,7 +1797,8 @@ public partial class MainWindow : Window
             using var processor = factory.CreateBuilder().WithLanguage(language).Build();
             using var stream = File.OpenRead(wavPath);
             var transcript = new StringBuilder();
-            await foreach (var segment in processor.ProcessAsync(stream))
+            using var recognitionTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            await foreach (var segment in processor.ProcessAsync(stream, recognitionTimeout.Token))
                 transcript.Append(segment.Text).Append(' ');
             return transcript.ToString().Trim();
         });
