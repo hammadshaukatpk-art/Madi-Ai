@@ -59,6 +59,58 @@ void PublishStatus()
    FileClose(file);
 }
 
+ENUM_TIMEFRAMES ParseTimeframe(string value)
+{
+   if(value == "M1") return PERIOD_M1;
+   if(value == "M5") return PERIOD_M5;
+   if(value == "M15") return PERIOD_M15;
+   if(value == "M30") return PERIOD_M30;
+   if(value == "H1") return PERIOD_H1;
+   if(value == "H4") return PERIOD_H4;
+   if(value == "D1") return PERIOD_D1;
+   if(value == "W1") return PERIOD_W1;
+   if(value == "MN1") return PERIOD_MN1;
+   return PERIOD_CURRENT;
+}
+
+void ProcessChartRequest()
+{
+   string path = "MadiAI\\\\command.txt";
+   if(!FileIsExist(path, FILE_COMMON)) return;
+   int handle = FileOpen(path, FILE_READ | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(handle == INVALID_HANDLE) return;
+   string command = FileReadString(handle);
+   FileClose(handle);
+   FileDelete(path, FILE_COMMON);
+
+   string parts[];
+   if(StringSplit(command, '|', parts) != 3) return;
+   if(parts[0] != "chart") return;
+   string symbol = parts[1];
+   string frame = parts[2];
+   StringTrimLeft(symbol);
+   StringTrimRight(symbol);
+   StringTrimLeft(frame);
+   StringTrimRight(frame);
+   if(StringLen(symbol) < 2 || StringLen(symbol) > 20) return;
+   if(StringLen(frame) < 2 || StringLen(frame) > 3) return;
+   for(int i = 0; i < StringLen(symbol); i++)
+   {
+      ushort c = StringGetCharacter(symbol, i);
+      if(!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+           c == '.' || c == '_' || c == '-')) return;
+   }
+   ENUM_TIMEFRAMES period = ParseTimeframe(frame);
+   if(period == PERIOD_CURRENT) return;
+   if(!SymbolSelect(symbol, true))
+   {
+      Print("Madi AI: symbol unavailable ", symbol);
+      return;
+   }
+   if(!ChartSetSymbolPeriod(0, symbol, period))
+      Print("Madi AI: could not switch chart ", symbol, " ", frame);
+}
+
 int OnInit()
 {
    EventSetTimer(2);
@@ -69,6 +121,7 @@ int OnInit()
 
 void OnTimer()
 {
+   ProcessChartRequest();
    PublishStatus();
 }
 
