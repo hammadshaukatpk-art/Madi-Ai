@@ -529,6 +529,16 @@ public partial class MainWindow : Window
 
     private bool TryHandleExtendedWindowsCommand(string text, string raw)
     {
+        if (text is "mt5 balance" or "metatrader balance" or "mt5 equity" or "mt5 account" or
+            "mt5 positions" or "mt5 trades" or "mt5 orders" or "show mt5 positions" or
+            "check mt5 balance" or "check mt5 positions")
+        {
+            var topic = text.Contains("position") || text.Contains("trades") || text.Contains("orders")
+                ? "positions" : text.Contains("balance") || text.Contains("equity") || text.Contains("account")
+                    ? "account" : "status";
+            Respond(Mt5Bridge.Describe(topic), false);
+            return true;
+        }
         if (text.StartsWith("find file ") || text.StartsWith("locate file ") || text.StartsWith("search my files "))
         {
             var name = text.StartsWith("search my files ") ? text[16..] : text.StartsWith("locate file ") ? text[12..] : text[10..];
@@ -595,8 +605,10 @@ public partial class MainWindow : Window
             var terminals = Process.GetProcesses().Where(p =>
                 p.ProcessName.Equals("terminal64", StringComparison.OrdinalIgnoreCase) ||
                 p.ProcessName.Equals("terminal", StringComparison.OrdinalIgnoreCase)).ToArray();
-            Respond(terminals.Length == 0 ? "MetaTrader 5 is not currently running." :
-                $"Detected {terminals.Length} MetaTrader terminal process(es). I cannot verify your broker login, positions or balances without a dedicated terminal integration.", false);
+            var live = Mt5Bridge.Read(out var bridgeDiagnostic);
+            Respond(live != null ? Mt5Bridge.Describe("status") :
+                terminals.Length == 0 ? "MetaTrader 5 is not currently running. " + bridgeDiagnostic :
+                $"Detected {terminals.Length} MetaTrader terminal process(es). " + bridgeDiagnostic, false);
             return true;
         }
         if (text is "system information" or "system status" or "pc status" or "computer status")
