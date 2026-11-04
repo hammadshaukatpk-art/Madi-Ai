@@ -55,7 +55,7 @@ internal static class WindowsTextAutomation
         if (matches.Length == 0) return "No safe open application matched " + appName + ".";
         if (matches.Length > 1) return "Multiple windows matched. Specify a more precise application or window title.";
         var target = matches[0];
-        if (MessageBox.Show("Request " + target.ProcessName + " to close?\n\n" +
+        if (System.Windows.MessageBox.Show("Request " + target.ProcessName + " to close?\n\n" +
             "Unsaved changes may cause the app to ask you for confirmation. Madi will not force quit it.",
             "Madi AI • Confirm closing app", MessageBoxButton.YesNo,
             MessageBoxImage.Warning) != MessageBoxResult.Yes)
