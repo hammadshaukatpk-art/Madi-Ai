@@ -13,10 +13,10 @@ Madi AI uses local speech synthesis only. No voice input or generated speech is 
 - Dataset: LJ Speech, public-domain recordings.
 - Voice trained by Piper contributors. Preserve upstream MODEL_CARD for exact attribution.
 
-## Urdu voice: ur_PK-aegis_female-medium
+## Urdu voice considered but NOT bundled: ur_PK-aegis_female-medium
 - Source: https://huggingface.co/rhasspy/piper-voices/tree/main/ur/ur_PK/aegis_female/medium
 - Model card states MIT. Voice contributed by mahwizzzz; derived from earlier Fasih Urdu work.
-- Preserve the upstream MODEL_CARD.
+- Preserve the upstream MODEL_CARD. This model failed synthesis with the archived Piper Windows binary, so it is not included in the installer.
 
 ## Speech recognition
 - Whisper.net runtime: https://github.com/sandrohanea/whisper.net
