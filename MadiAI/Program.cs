@@ -204,6 +204,15 @@ internal static class Program
                 picker.SelectedIndex = 2;
                 System.IO.File.AppendAllText(log, "Main window loaded; language selection: " + picker.SelectedIndex + Environment.NewLine);
                 picker.SelectedIndex = 0;
+                win.UpdateLayout();
+                var composer = (System.Windows.Controls.TextBox?)win.FindName("CommandBox");
+                var microphone = (System.Windows.Controls.Button?)win.FindName("MicButton");
+                var panels = (System.Windows.Controls.TabControl?)win.FindName("RightPanelTabs");
+                if (composer == null || microphone == null || panels == null ||
+                    composer.ActualWidth < 200 || microphone.ActualWidth < 50 || panels.ActualWidth < 280)
+                    throw new InvalidOperationException("Dashboard command composer or conversation panel is clipped.");
+                System.IO.File.AppendAllText(log,
+                    $"Dashboard layout: composer={composer.ActualWidth:F0}, mic={microphone.ActualWidth:F0}, panel={panels.ActualWidth:F0}" + Environment.NewLine);
             };
             var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
             timer.Tick += (_, _) =>
