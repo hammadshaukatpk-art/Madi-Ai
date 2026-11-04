@@ -70,6 +70,11 @@ internal static class Program
                     throw new InvalidOperationException("MT5 local chart analysis regression.");
                 if (Mt5ChartAnalysis.TryParse("2026.01.01 00:00:00|1.1|0.9|1.0|1.1|100", out _))
                     throw new InvalidOperationException("Malformed MT5 candle was accepted.");
+                System.IO.File.WriteAllText(temp, "updated=" + DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss") +
+                    "\\nterminal_connected=0\\nbroker=DemoBroker\\nlogin=12345\\ncurrency=USD\\nbalance=1000\\nequity=1000\\nfree_margin=900\\n");
+                if (Mt5Bridge.ReadFromPath(temp, out var disconnected) != null ||
+                    !disconnected.Contains("disconnected", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Disconnected MT5 broker was incorrectly reported as live.");
                 System.IO.File.WriteAllText(temp, "updated=2001.01.01 00:00:00\nbroker=DemoBroker\nlogin=12345\ncurrency=USD\nbalance=1000\nequity=1000\nfree_margin=900\n");
                 if (Mt5Bridge.ReadFromPath(temp, out _) != null)
                     throw new InvalidOperationException("Stale MT5 status was accepted.");
