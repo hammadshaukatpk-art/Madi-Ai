@@ -1417,6 +1417,7 @@ public partial class MainWindow : Window
         start.ArgumentList.Add("--profile-directory=" + selected.Folder);
         start.ArgumentList.Add(targetUrl);
         Process.Start(start);
+        SavePreferredChromeFolder(serviceName, selected.Folder);
         Respond("Opening " + serviceName + " in Chrome profile " + selected.Name + ".");
         return true;
     }
