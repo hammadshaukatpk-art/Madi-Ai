@@ -79,7 +79,9 @@ public partial class MainWindow : Window
         Width = Math.Max(MinWidth, Math.Min(1440, SystemParameters.WorkArea.Width - 24));
         Height = Math.Max(MinHeight, Math.Min(850, SystemParameters.WorkArea.Height - 24));
         Directory.CreateDirectory(profile);
-        companionEnabled = File.Exists(CompanionFile) && File.ReadAllText(CompanionFile).Trim() == "on";
+        try { companionEnabled = File.Exists(CompanionFile) && File.ReadAllText(CompanionFile).Trim() == "on"; }
+        catch (IOException) { companionEnabled = false; }
+        catch (UnauthorizedAccessException) { companionEnabled = false; }
         companionTimer.Tick += (_, _) => CompanionCheckIn();
         companionTimer.Start();
         memory = new LocalMemoryStore(profile);
