@@ -39,6 +39,17 @@ jobs:
           if (Test-Path $log) { Get-Content $log }
           if ($p.ExitCode -ne 0) { throw "Offline voice engine failed: $($p.ExitCode)" }
           if (-not (Select-String -Path $log -Pattern 'initialized successfully' -Quiet)) { throw 'Voice engine did not initialize' }
+      - name: Verify actual Madi AI dashboard loads
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-app-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path publish/MadiAI.exe).Path -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(45000)) { $p.Kill(); throw 'Madi AI dashboard startup timed out' }
+          if ($p.ExitCode -ne 0) { throw "Madi AI dashboard failed: $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Dashboard smoke log missing' }
+          Get-Content $log
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Dashboard did not load' }
       - name: Bundle app payload
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath app-package.zip -Force
