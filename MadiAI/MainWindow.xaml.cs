@@ -1679,7 +1679,7 @@ public partial class MainWindow : Window
                 Foreground = System.Windows.Media.Brushes.White
             };
             var content = new DockPanel { Margin = new Thickness(16) };
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+            var buttons = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
             DockPanel.SetDock(buttons, Dock.Bottom);
             var list = new System.Windows.Controls.ListBox
             {
