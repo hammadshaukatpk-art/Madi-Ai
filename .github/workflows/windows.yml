@@ -1,6 +1,8 @@
 name: Build Madi AI Windows
 on:
   push:
+    branches: [main, 'fix/voice-chat-routing-20261105']
+  pull_request:
     branches: [main]
   workflow_dispatch:
 jobs:
