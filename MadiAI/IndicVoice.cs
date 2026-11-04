@@ -60,8 +60,8 @@ internal static class IndicVoice
         lock (sync)
         {
             var tts = language == "hi"
-                ? hindiEngine ??= new OfflineTts(config)
-                : urduEngine ??= new OfflineTts(config);
+                ? (hindiEngine ??= new OfflineTts(config))
+                : (urduEngine ??= new OfflineTts(config));
             var generation = new OfflineTtsGenerationConfig
             {
                 Sid = 0,
