@@ -206,7 +206,7 @@ public partial class MainWindow : Window
 
     private void SpeakRemainder(string text)
     {
-        if (piperCancellation is { IsCancellationRequested: false } cancellation && PiperVoice.IsAvailable)
+        if (piperCancellation is { IsCancellationRequested: false } cancellation && PiperVoice.IsAvailableFor(text))
         {
             Interlocked.Increment(ref piperPendingSegments);
             piperSpeechTask = RunPiperRemainderAsync(piperSpeechTask, text, cancellation.Token, piperGeneration);
@@ -220,8 +220,9 @@ public partial class MainWindow : Window
         try
         {
             StopSpeech();
-            if (PiperVoice.IsAvailable && LanguagePicker.SelectedIndex is 0 or 1 &&
-                !Regex.IsMatch(text, @"[\u0600-\u06FF\u0900-\u097F]"))
+            if (PiperVoice.IsAvailableFor(text) &&
+                !Regex.IsMatch(text, @"[\u0900-\u097F]") &&
+                (LanguagePicker.SelectedIndex is 0 or 1 || Regex.IsMatch(text, @"[\u0600-\u06FF]")))
             {
                 var cancellation = new CancellationTokenSource();
                 piperCancellation = cancellation;
