@@ -5,7 +5,7 @@
  <SolidColorBrush x:Key="Blue" Color="#19CFFF"/>
  <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#E8041328"/><Setter Property="BorderBrush" Value="#158CD6"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="15"/><Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#087BFF" BlurRadius="16" ShadowDepth="0" Opacity=".32"/></Setter.Value></Setter></Style>
  <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="17"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="16,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
- <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="16"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
  <Style x:Key="DarkLanguageItem" TargetType="ComboBoxItem">
   <Setter Property="Foreground" Value="#E8FAFF"/><Setter Property="Background" Value="#081B34"/><Setter Property="Padding" Value="12,8"/>
@@ -65,7 +65,7 @@
   </Grid>
  </Border>
  <Grid Grid.Row="1" Margin="12,14,12,8">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="3*" MinWidth="350"/><ColumnDefinition Width="2*" MinWidth="300"/></Grid.ColumnDefinitions>
+  <Grid.ColumnDefinitions><ColumnDefinition Width="236"/><ColumnDefinition Width="3*" MinWidth="320"/><ColumnDefinition Width="2*" MinWidth="280"/></Grid.ColumnDefinitions>
   <Border Grid.Column="0" Background="#C8081B34" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Margin="0,0,12,0">
    <DockPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="12,4,12,12">
@@ -129,14 +129,14 @@
     </Viewbox>
    </Grid>
    <StackPanel Grid.Row="2" HorizontalAlignment="Center" Margin="0,0,0,6">
-    <TextBlock Text="SPEAK OR TYPE A COMMAND" FontSize="11" Foreground="#91BBD4" HorizontalAlignment="Center"/>
+    <TextBlock Text="READY FOR CONVERSATION OR COMMANDS" FontSize="11" Foreground="#91BBD4" HorizontalAlignment="Center"/>
     <TextBlock x:Name="ListenStatus" Text="● Standby" FontSize="13" Foreground="#64F3AE" HorizontalAlignment="Center" Margin="0,5,0,0"/>
    </StackPanel>
   </Grid>
   <Border Grid.Column="2" Background="#D6081A32" BorderBrush="#2276B0" BorderThickness="1" CornerRadius="15">
    <Grid Margin="15"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,12">
-     <TextBlock Text="✦  LIVE CONVERSATION" FontSize="16" FontWeight="Bold" Foreground="#E8F9FF"/>
+     <TextBlock Text="✦  CONVERSATION" FontSize="16" FontWeight="Bold" Foreground="#E8F9FF"/>
      <TextBlock Text="LOCAL INTELLIGENCE  /  CONTEXT-AWARE" FontSize="10" Foreground="#69C8F0" Margin="0,5,0,0"/>
     </StackPanel>
     <TextBox x:Name="ConversationText" Grid.Row="1" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="14" FontFamily="Segoe UI" Padding="12" Foreground="#D6F1FF" Background="#090F2138" BorderBrush="#20557C" BorderThickness="1" AcceptsReturn="True" SelectionBrush="#2A77A4"/>
@@ -154,17 +154,12 @@
     <Button x:Name="MicButton" Grid.Column="1" Content="🎙" FontSize="22" Foreground="#D5F7FF" Background="#125C91" BorderBrush="#29DFFF" BorderThickness="2" Margin="8,0" Click="Voice_Click"/>
     <Button Grid.Column="2" Content="SEND  ➤" Foreground="White" Background="#174C83" BorderBrush="#23B5E8" Margin="4,0,0,0" Click="Send_Click"/>
    </Grid>
-   <UniformGrid Grid.Row="1" Columns="10" Margin="0,8,0,0">
-    <Button Style="{StaticResource TileButton}" Content="Browser" Click="Browser_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="YouTube" Click="Youtube_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="WhatsApp" Click="Whatsapp_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="eBay" Click="Ebay_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="AliExpress" Click="Ali_Click"/>
+   <UniformGrid Grid.Row="1" Columns="5" Margin="0,8,0,0">
+    <Button Style="{StaticResource TileButton}" Content="BROWSER" Click="Browser_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="YOUTUBE" Click="Youtube_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="WHATSAPP" Click="Whatsapp_Click"/>
     <Button Style="{StaticResource TileButton}" Content="MT5" Click="Mt5_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="Canva" Click="Canva_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="Office" Click="Office_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="ChatGPT" Click="ChatGpt_Click"/>
-    <Button Style="{StaticResource TileButton}" Content="Apps" Click="Apps_Click"/>
+    <Button Style="{StaticResource TileButton}" Content="ALL APPS" Click="Apps_Click"/>
    </UniformGrid>
   </Grid>
  </Border>
