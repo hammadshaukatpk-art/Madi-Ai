@@ -135,6 +135,20 @@ public partial class MainWindow : Window
             { CommandBox.Focus(); CommandBox.SelectAll(); e.Handled = true; }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.M)
             { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Space)
+            {
+                // Push-to-interrupt: cancel speech, then resume the existing
+                // listening loop after its recording-stopped callback completes.
+                if (speaker.State == SynthesizerState.Speaking || piperSpeaking)
+                {
+                    StopSpeech();
+                    if (listening && microphone == null && !processingAudio && !pauseForSpeech)
+                        StartRecording();
+                    e.Handled = true;
+                }
+                else if (!listening)
+                { Voice_Click(this, new RoutedEventArgs()); e.Handled = true; }
+            }
             else if (e.Key == Key.Escape && (speaker.State == SynthesizerState.Speaking || piperSpeaking))
             { StopSpeech(); e.Handled = true; }
         };
@@ -1397,6 +1411,14 @@ public partial class MainWindow : Window
         }
         if (listening)
         {
+            if (speaker.State == SynthesizerState.Speaking || piperSpeaking)
+            {
+                StopSpeech();
+                if (microphone == null && !processingAudio && !pauseForSpeech)
+                    StartRecording();
+                Respond("Speech interrupted. I'm listening.", false);
+                return;
+            }
             listening = false;
             voiceChunk.Stop();
             try { microphone?.StopRecording(); } catch { }
