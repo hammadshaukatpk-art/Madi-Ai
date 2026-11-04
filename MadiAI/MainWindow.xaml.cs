@@ -175,6 +175,14 @@ public partial class MainWindow : Window
         var language = LanguagePicker.SelectedIndex switch { 1 => "English", 2 => "Urdu", 3 => "Hindi", _ => "Automatic" };
         Respond("Voice recognition language: " + language + ". The change applies to your next command.", false);
     }
+    private string SelectedVoiceLanguage => LanguagePicker.SelectedIndex switch
+    {
+        1 => "en",
+        2 => "ur",
+        3 => "hi",
+        _ => ""
+    };
+
     private void StopSpeech()
     {
         piperCancellation?.Cancel();
@@ -186,7 +194,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var spoken = await PiperVoice.SpeakAsync(text, token);
+            var spoken = await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage);
             if (!spoken && !token.IsCancellationRequested)
             {
                 await Dispatcher.InvokeAsync(() =>
@@ -211,8 +219,8 @@ public partial class MainWindow : Window
             catch (Exception) { /* The next sentence may still be spoken by Windows TTS. */ }
             if (!token.IsCancellationRequested)
             {
-                var spoken = useNeuralVoice && PiperVoice.IsAvailableFor(text) &&
-                    await PiperVoice.SpeakAsync(text, token);
+                var spoken = useNeuralVoice && PiperVoice.IsAvailableFor(text, SelectedVoiceLanguage) &&
+                    await PiperVoice.SpeakAsync(text, token, SelectedVoiceLanguage);
                 if (!spoken && !token.IsCancellationRequested)
                     await Dispatcher.InvokeAsync(() => { try { speaker.SpeakAsync(text); } catch { } });
             }
@@ -247,9 +255,7 @@ public partial class MainWindow : Window
                 try { microphone.StopRecording(); } catch { pauseForSpeech = false; }
             }
             StopSpeech();
-            if (useNeuralVoice && PiperVoice.IsAvailableFor(text) &&
-                !Regex.IsMatch(text, @"[\u0900-\u097F]") &&
-                (LanguagePicker.SelectedIndex is 0 or 1 || Regex.IsMatch(text, @"[\u0600-\u06FF]")))
+            if (useNeuralVoice && PiperVoice.IsAvailableFor(text, SelectedVoiceLanguage))
             {
                 var cancellation = new CancellationTokenSource();
                 piperCancellation = cancellation;
@@ -1723,7 +1729,7 @@ public partial class MainWindow : Window
         {
             Text = "Offline neural voices: English " + (PiperVoice.IsAvailableFor("Hello") ? "ready" : "unavailable") +
                 " | Urdu " + (PiperVoice.IsAvailableFor("سلام") ? "ready" : "unavailable") +
-                " | Hindi uses an installed Windows voice",
+                " | Hindi " + (PiperVoice.IsAvailableFor("नमस्ते") ? "offline ready" : "Windows voice fallback"),
             FontSize = 12, Foreground = System.Windows.Media.Brushes.LightSkyBlue,
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8)
         });
