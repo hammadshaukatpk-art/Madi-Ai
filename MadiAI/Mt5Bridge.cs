@@ -20,7 +20,7 @@ internal static class Mt5Bridge
 
     internal sealed record Snapshot(
         DateTime Timestamp, string Broker, string Login, string Currency,
-        string Balance, string Equity, string FreeMargin, string[] Positions);
+        string Balance, string Equity, string FreeMargin, string ChartSymbol, string ChartTimeframe, string Bid, string Ask, string[] Positions);
 
     internal static Snapshot? Read(out string diagnostic) => ReadFromPath(StatusPath, out diagnostic);
 
@@ -60,7 +60,7 @@ internal static class Mt5Bridge
                 .Select(x => x["position=".Length..]).Take(40).ToArray();
             diagnostic = "Live read-only MT5 bridge connected.";
             return new Snapshot(timestamp, Get("broker"), Get("login"), Get("currency"),
-                Get("balance"), Get("equity"), Get("free_margin"), positions);
+                Get("balance"), Get("equity"), Get("free_margin"), Get("chart_symbol"), Get("chart_timeframe"), Get("bid"), Get("ask"), positions);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -97,6 +97,8 @@ internal static class Mt5Bridge
     {
         var snapshot = Read(out var diagnostic);
         if (snapshot == null) return diagnostic;
+        if (topic is "price" or "quote" or "chart")
+            return $"MT5 active chart: {snapshot.ChartSymbol}, {snapshot.ChartTimeframe}. Bid {snapshot.Bid}, Ask {snapshot.Ask}. Last updated {snapshot.Timestamp:HH:mm:ss}.";
         if (topic is "balance" or "equity" or "account")
             return $"MT5 account {snapshot.Login} at {snapshot.Broker}. Balance: {snapshot.Balance} {snapshot.Currency}. " +
                    $"Equity: {snapshot.Equity} {snapshot.Currency}. Free margin: {snapshot.FreeMargin} {snapshot.Currency}. " +
