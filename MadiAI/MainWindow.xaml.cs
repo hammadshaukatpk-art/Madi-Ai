@@ -284,6 +284,11 @@ public partial class MainWindow : Window
             if (TrySelectPendingChromeProfile(text)) return;
             if (TryHandleMemoryCommand(text, raw)) return;
             if (TryHandleExtendedWindowsCommand(text, raw)) return;
+            // Prevent questions such as "What is MT5?" or "Explain YouTube"
+            // from accidentally launching programs merely by naming them.
+            bool launchIntent = Regex.IsMatch(text, @"^(?:open|launch|start|run|show|bring up|go to|kholo|khol do|खोलो|کھولو)\b") ||
+                text.Contains(" open karo") || text.EndsWith(" kholo") || text.EndsWith(" खोलो") ||
+                text.EndsWith(" کھولو") || text.EndsWith(" khol do");
             // Route searches before generic website launchers; a search request
             // must not silently open the homepage instead.
             if (text is "volume up" or "increase volume" or "آواز بڑھاؤ" or "आवाज़ बढ़ाओ")
@@ -336,8 +341,8 @@ public partial class MainWindow : Window
             {
                 ShowAppPicker(); return;
             }
-            if (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब")) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
-            if (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप"))
+            if (launchIntent && (text.Contains("youtube") || text.Contains("یوٹیوب") || text.Contains("यूट्यूब"))) { OpenWebWithProfile("YouTube", "https://www.youtube.com", text); return; }
+            if (launchIntent && (text.Contains("whatsapp") || text.Contains("whats app") || text.Contains("واٹس ایپ") || text.Contains("واتس اپ") || text.Contains("व्हाट्सएप") || text.Contains("व्हाट्स ऐप") || text.Contains("व्हाट्सऐप")))
             {
                 if (text.Contains("desktop") || text.Contains("app only") || text.Contains("ڈیسک ٹاپ") || text.Contains("डेस्कटॉप"))
                 {
@@ -347,20 +352,20 @@ public partial class MainWindow : Window
                 else OpenWebWithProfile("WhatsApp", "https://web.whatsapp.com", text);
                 return;
             }
-            if (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस")) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
-            if (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे")) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
-            if (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा")) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
-            if (text.Contains("chatgpt")) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
-            if (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र"))
+            if (launchIntent && (text.Contains("aliexpress") || text.Contains("علی ایکسپریس") || text.Contains("अलीएक्सप्रेस"))) { OpenWebWithProfile("AliExpress", "https://www.aliexpress.com", text); return; }
+            if (launchIntent && (text.Contains("ebay") || text.Contains("ای بے") || text.Contains("ईबे"))) { OpenWebWithProfile("eBay", "https://www.ebay.com", text); return; }
+            if (launchIntent && (text.Contains("canva") || text.Contains("کینوا") || text.Contains("कैनवा"))) { OpenWebWithProfile("Canva", "https://www.canva.com", text); return; }
+            if (launchIntent && (text.Contains("chatgpt"))) { Open("https://chatgpt.com"); Respond("Opening ChatGPT."); return; }
+            if (launchIntent && (text.Contains("browser") || text.Contains("google") || text.Contains("گوگل") || text.Contains("गूगल") || text.Contains("chrome") || text.Contains("براؤزر") || text.Contains("ब्राउज़र")))
             { OpenGoogleWithProfile(text); return; }
-            if (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर")) { Open("calc.exe"); Respond("Opening Calculator."); return; }
-            if (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड")) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
-            if (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग")) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
-            if (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर")) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
-            if (text.Contains("paint")) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
-            if (text.Contains("word")) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
-            if (text.Contains("excel")) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
-            if (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर"))
+            if (launchIntent && (text.Contains("calculator") || text.Contains("کیلکولیٹر") || text.Contains("कैलकुलेटर"))) { Open("calc.exe"); Respond("Opening Calculator."); return; }
+            if (launchIntent && (text.Contains("notepad") || text.Contains("نوٹ پیڈ") || text.Contains("नोटपैड"))) { Open("notepad.exe"); Respond("Opening Notepad."); return; }
+            if (launchIntent && (text.Contains("settings") || text.Contains("سیٹنگز") || text.Contains("सेटिंग"))) { Open("ms-settings:"); Respond("Opening Windows Settings."); return; }
+            if (launchIntent && (text.Contains("explorer") || text.Contains("فائل ایکسپلورر") || text.Contains("फाइल एक्सप्लोरर"))) { Open("explorer.exe"); Respond("Opening File Explorer."); return; }
+            if (launchIntent && (text.Contains("paint"))) { Open("mspaint.exe"); Respond("Opening Paint."); return; }
+            if (launchIntent && (text.Contains("word"))) { Open("winword.exe"); Respond("Opening Microsoft Word, if installed."); return; }
+            if (launchIntent && (text.Contains("excel"))) { Open("excel.exe"); Respond("Opening Microsoft Excel, if installed."); return; }
+            if (launchIntent && (text.Contains("mt5") || text.Contains("metatrader") || text.Contains("میٹا ٹریڈر") || text.Contains("मेटाट्रेडर")))
             {
                 if (TryLaunchShortcut("MetaTrader 5", out _) || TryLaunchShortcut("MT5", out _))
                     Respond("Opening MetaTrader 5.");
