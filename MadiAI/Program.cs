@@ -15,6 +15,24 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Contains("--smoke-mt5-bridge", StringComparer.OrdinalIgnoreCase))
+        {
+            var temp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-mt5-test-" + Guid.NewGuid().ToString("N") + ".txt");
+            try
+            {
+                System.IO.File.WriteAllText(temp, "updated=" + DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss") +
+                    "\\nbroker=DemoBroker\\nlogin=12345\\ncurrency=USD\\nbalance=1000.00\\nequity=1010.00\\nfree_margin=900.00\\nposition=456|EURUSD|BUY|0.10|10.00\\n");
+                var result = Mt5Bridge.ReadFromPath(temp, out var diagnostic);
+                if (result == null || result.Login != "12345" || result.Positions.Length != 1)
+                    throw new InvalidOperationException("MT5 bridge parsing failed: " + diagnostic);
+                System.IO.File.WriteAllText(temp, "updated=2001.01.01 00:00:00\\nbroker=DemoBroker\\nlogin=12345\\ncurrency=USD\\nbalance=1000\\nequity=1000\\nfree_margin=900\\n");
+                if (Mt5Bridge.ReadFromPath(temp, out _) != null)
+                    throw new InvalidOperationException("Stale MT5 status was accepted.");
+            }
+            catch (Exception ex) { System.Console.Error.WriteLine(ex); Environment.ExitCode = 9; }
+            finally { try { System.IO.File.Delete(temp); } catch { } }
+            return;
+        }
         if (args.Contains("--smoke-memory", StringComparer.OrdinalIgnoreCase))
         {
             var folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "madi-memory-test-" + Guid.NewGuid().ToString("N"));
