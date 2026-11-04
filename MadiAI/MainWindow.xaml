@@ -4,7 +4,7 @@
  <SolidColorBrush x:Key="Panel" Color="#071629"/>
  <SolidColorBrush x:Key="Blue" Color="#19CFFF"/>
  <Style x:Key="PanelStyle" TargetType="Border"><Setter Property="Background" Value="#E8041328"/><Setter Property="BorderBrush" Value="#158CD6"/><Setter Property="BorderThickness" Value="1.5"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="15"/><Setter Property="Effect"><Setter.Value><DropShadowEffect Color="#087BFF" BlurRadius="16" ShadowDepth="0" Opacity=".32"/></Setter.Value></Setter></Style>
- <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="14"/><Setter Property="Height" Value="43"/><Setter Property="Padding" Value="11,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
+ <Style x:Key="MenuButton" TargetType="Button"><Setter Property="Foreground" Value="#E5F6FF"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="FontSize" Value="14"/><Setter Property="Height" Value="37"/><Setter Property="Padding" Value="11,0"/><Setter Property="Cursor" Value="Hand"/><Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#1D25528A"/></Trigger></Style.Triggers></Style>
  <Style x:Key="TileButton" TargetType="Button"><Setter Property="Foreground" Value="#E9F9FF"/><Setter Property="Background" Value="#102139"/><Setter Property="BorderBrush" Value="#1D658B"/><Setter Property="BorderThickness" Value="1"/><Setter Property="FontSize" Value="13"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="4"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="tile" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="7"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="tile" Property="BorderBrush" Value="#29DCFF"/><Setter TargetName="tile" Property="Background" Value="#1D3665"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
  <Style x:Key="GlowText" TargetType="TextBlock"><Setter Property="Foreground" Value="#E6F8FF"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="18"/></Style>
  <Style x:Key="DarkLanguageItem" TargetType="ComboBoxItem">
@@ -78,13 +78,8 @@
       <Button Style="{StaticResource MenuButton}" Content="▦   Applications" Click="Apps_Click"/>
       <Button Style="{StaticResource MenuButton}" Content="◎   Web &amp; Research" Click="Web_Click"/>
       <Button Style="{StaticResource MenuButton}" Content="⌁   MetaTrader 5" Click="Mt5_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="◈   eBay" Click="Ebay_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="▤   AliExpress" Click="Ali_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="▶   YouTube" Click="Youtube_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="◈   Canva" Click="Canva_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="◉   WhatsApp" Click="Whatsapp_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="▱   Files &amp; Folders" Click="Files_Click"/>
-      <Button Style="{StaticResource MenuButton}" Content="▦   Tasks &amp; Routines" Click="Tasks_Click"/>
+      <Button Style="{StaticResource MenuButton}" Content="⚒   Tools &amp; Utilities" Click="System_Click"/>
+      <Button Style="{StaticResource MenuButton}" Content="▦   Automation" Click="Tasks_Click"/>
       <Button Style="{StaticResource MenuButton}" Content="⚙   Settings" Click="Settings_Click"/>
      </StackPanel>
     </ScrollViewer>
@@ -171,7 +166,7 @@
      </UniformGrid>
     </StackPanel>
    </Border>
-   <TabControl x:Name="RightPanelTabs" Grid.Row="1" SelectedIndex="0" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
+   <TabControl x:Name="RightPanelTabs" Grid.Row="1" SelectedIndex="1" Background="#081A32" Foreground="#E6F8FF" BorderBrush="#2276B0" BorderThickness="1">
     <TabItem Header="CAPABILITIES" Background="#092342" Foreground="#EAF9FF">
      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
       <StackPanel>
@@ -205,16 +200,16 @@
  </Border>
  <Border Grid.Row="3" Margin="240,5,12,5" Background="#C9081930" BorderBrush="#17638D" BorderThickness="1" CornerRadius="14" Padding="6">
   <UniformGrid Columns="10">
-   <Button Style="{StaticResource TileButton}" Content="Browser" Click="Browser_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="YouTube" Click="Youtube_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="WhatsApp" Click="Whatsapp_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="eBay" Click="Ebay_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="AliExpress" Click="Ali_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="MT5" Click="Mt5_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="Canva" Click="Canva_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="Office" Click="Office_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="ChatGPT" Click="ChatGpt_Click"/>
-   <Button Style="{StaticResource TileButton}" Content="+ Apps" Click="Apps_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="🌐 Chrome" Click="Browser_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▶ YouTube" Click="Youtube_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="☎ WhatsApp" Click="Whatsapp_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◈ eBay" Click="Ebay_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="◈ AliExpress" Click="Ali_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▥ MT5" Click="Mt5_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="✦ Canva" Click="Canva_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="▣ Office" Click="Office_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="✦ ChatGPT" Click="ChatGpt_Click"/>
+   <Button Style="{StaticResource TileButton}" Content="⚙ Apps" Click="Apps_Click"/>
   </UniformGrid>
  </Border>
  <Grid Grid.Row="4" Margin="20,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
