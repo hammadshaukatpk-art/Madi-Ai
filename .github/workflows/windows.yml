@@ -45,6 +45,22 @@ jobs:
       - name: Publish dark-themed installer and uninstaller
         shell: pwsh
         run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Publish alternate framework-dependent installer for compatibility diagnosis
+        shell: pwsh
+        run: |
+          dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:UseAppHost=true -o setup-compatible
+          if (-not (Test-Path 'setup-compatible/Madi-AI-Setup.exe')) { throw 'Compatible installer executable missing' }
+          Compress-Archive -Path setup-compatible/* -DestinationPath Madi-AI-Setup-Compatible.zip -Force
+      - name: Verify alternate installer launches
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-setup-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path setup-compatible/Madi-AI-Setup.exe).Path -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(45000)) { $p.Kill(); throw 'Alternate installer startup timed out' }
+          if ($p.ExitCode -ne 0) { throw "Alternate installer failed: $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Alternate installer startup trace missing' }
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Alternate installer window did not load' }
       - name: Verify Windows x64 PE installer and checksum
         shell: pwsh
         run: |
@@ -91,6 +107,11 @@ jobs:
         with:
           name: Madi-AI-Native-Dark-Installer
           path: setup/Madi-AI-Setup.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Madi-AI-Installer-Compatible-Diagnostic
+          path: Madi-AI-Setup-Compatible.zip
           if-no-files-found: error
       - name: Publish direct-download EXE release
         if: github.ref == 'refs/heads/main'
