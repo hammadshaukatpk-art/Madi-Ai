@@ -396,23 +396,52 @@ public partial class MainWindow : Window
             var payload = JsonSerializer.Serialize(new
             {
                 model = cachedAiModel,
-                stream = false,
+                stream = true,
                 keep_alive = "30m",
                 messages,
                 options = new { num_predict = 140, temperature = 0.5 }
             });
             using var request = new StringContent(payload, Encoding.UTF8, "application/json");
-            using var response = await aiHttp.PostAsync("api/chat", request);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/chat") { Content = request };
+            using var response = await aiHttp.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
-            using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var answer = result.RootElement.GetProperty("message").GetProperty("content").GetString()?.Trim();
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            var assembled = new StringBuilder();
+            var spokenLength = 0;
+            while (await reader.ReadLineAsync() is { } line)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var chunk = JsonDocument.Parse(line);
+                if (chunk.RootElement.TryGetProperty("message", out var message) &&
+                    message.TryGetProperty("content", out var content))
+                {
+                    var fragment = content.GetString();
+                    if (!string.IsNullOrEmpty(fragment))
+                    {
+                        assembled.Append(fragment);
+                        StatusText.Text = assembled.ToString();
+                        var current = assembled.ToString();
+                        var boundary = current.LastIndexOfAny(new[] { '.', '!', '?', '۔', '؟' });
+                        if (boundary >= spokenLength && boundary - spokenLength >= 24)
+                        {
+                            var sentence = current.Substring(spokenLength, boundary + 1 - spokenLength).Trim();
+                            if (sentence.Length > 0) Speak(sentence);
+                            spokenLength = boundary + 1;
+                        }
+                    }
+                }
+            }
+            var answer = assembled.ToString().Trim();
             if (string.IsNullOrWhiteSpace(answer)) { Respond("The language model returned no answer."); return; }
+            var remainder = answer.Length > spokenLength ? answer.Substring(spokenLength).Trim() : "";
+            if (remainder.Length > 0) Speak(remainder);
             LocalAiModuleText.Text = "●  Local AI • ready";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
             if (chatHistory.Count > 24) chatHistory.RemoveRange(0, chatHistory.Count - 24);
             SaveConversation();
-            Respond(answer);
+            StatusText.Text = answer;
         }
         catch (HttpRequestException ex)
         {
