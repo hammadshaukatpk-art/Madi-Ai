@@ -45,6 +45,20 @@ jobs:
       - name: Publish dark-themed installer and uninstaller
         shell: pwsh
         run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Verify Windows x64 PE installer and checksum
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'setup/Madi-AI-Setup.exe').Path
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          if ($bytes.Length -lt 1000000) { throw 'Installer unexpectedly small' }
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw 'Installer missing MZ header' }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ($peOffset -lt 64 -or $peOffset + 6 -ge $bytes.Length) { throw 'Invalid PE header offset' }
+          if ([Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4) -ne "PE`0`0") { throw 'Invalid PE signature' }
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          if ($machine -ne 0x8664) { throw ("Installer architecture mismatch: 0x{0:X4}" -f $machine) }
+          Write-Host "Verified x64 Windows PE installer: $($bytes.Length) bytes"
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
       - name: Verify standalone EXE launches without sidecar DLLs
         shell: pwsh
         run: |
