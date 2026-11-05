@@ -136,11 +136,11 @@ public partial class MainWindow : Window
         var language = LanguagePicker.SelectedIndex switch { 1 => "English", 2 => "Urdu", 3 => "Hindi", _ => "Automatic" };
         Respond("Voice recognition language: " + language + ". The change applies to your next command.", false);
     }
-    private void Speak(string text)
+    private void Speak(string text, bool interrupt = true)
     {
         try
         {
-            speaker.SpeakAsyncCancelAll();
+            if (interrupt) speaker.SpeakAsyncCancelAll();
             // Windows may not have Urdu/Hindi voices. Prefer an installed matching voice.
             var lang = LanguagePicker.SelectedIndex;
             var target = lang == 2 ? "ur" : lang == 3 ? "hi" : "en";
@@ -426,7 +426,7 @@ public partial class MainWindow : Window
                         if (boundary >= spokenLength && boundary - spokenLength >= 24)
                         {
                             var sentence = current.Substring(spokenLength, boundary + 1 - spokenLength).Trim();
-                            if (sentence.Length > 0) Speak(sentence);
+                            if (sentence.Length > 0) Speak(sentence, false);
                             spokenLength = boundary + 1;
                         }
                     }
@@ -435,7 +435,7 @@ public partial class MainWindow : Window
             var answer = assembled.ToString().Trim();
             if (string.IsNullOrWhiteSpace(answer)) { Respond("The language model returned no answer."); return; }
             var remainder = answer.Length > spokenLength ? answer.Substring(spokenLength).Trim() : "";
-            if (remainder.Length > 0) Speak(remainder);
+            if (remainder.Length > 0) Speak(remainder, false);
             LocalAiModuleText.Text = "●  Local AI • ready";
             chatHistory.Add(("user", question));
             chatHistory.Add(("assistant", answer));
