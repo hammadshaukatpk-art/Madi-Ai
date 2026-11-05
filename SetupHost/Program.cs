@@ -25,7 +25,7 @@ internal static class Program
    {
     var temp = Path.Combine(Path.GetTempPath(), "MadiAI-Uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
     File.Copy(Environment.ProcessPath!, temp, true);
-    Process.Start(new ProcessStartInfo(temp, "/uninstall-temp") { UseShellExecute = true });
+    Process.Start(new ProcessStartInfo(temp, "/uninstall-temp") { UseShellExecute = true, WorkingDirectory = Path.GetTempPath() });
     return;
    }
    var uninstall = uninstallRequested || args.Contains("--smoke-uninstall-ui", StringComparer.OrdinalIgnoreCase);
@@ -232,7 +232,7 @@ public sealed class SetupWindow : Window
    LogInstallationFailure(ex);
    progress.IsIndeterminate=false;
    progress.Value=0;
-   status.Text="Installation failed: "+ex.Message+"  You can retry without re-entering your code.";
+   status.Text=(uninstall?"Uninstall failed: ":"Installation failed: ")+ex.Message;
    primary.Content=uninstall?"RETRY UNINSTALL":"RETRY INSTALL";
    finished=false;
    primary.IsEnabled=true;
@@ -288,6 +288,7 @@ public sealed class SetupWindow : Window
  {
   if(!File.Exists(authPath) && string.IsNullOrWhiteSpace(newCode))
    throw new InvalidOperationException("Please set your private access code before installing.");
+  EnsureAppStopped();
   Directory.CreateDirectory(target);
   using var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("MadiAI.Payload") ?? throw new FileNotFoundException("Embedded app package not found.");
   using var archive=new ZipArchive(resource,ZipArchiveMode.Read);
@@ -328,26 +329,50 @@ public sealed class SetupWindow : Window
   MarshalRelease(link);MarshalRelease(shell);
  }
  static void MarshalRelease(object obj){try{if(System.Runtime.InteropServices.Marshal.IsComObject(obj))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(obj);}catch{}}
+ void EnsureAppStopped()
+ {
+  var appExe=Path.Combine(target,"MadiAI.exe");
+  foreach(var proc in Process.GetProcessesByName("MadiAI"))
+  {
+   try
+   {
+    string? executable;
+    try { executable=proc.MainModule?.FileName; }
+    catch { continue; }
+    if(!string.Equals(executable,appExe,StringComparison.OrdinalIgnoreCase))continue;
+    if(!proc.HasExited)
+    {
+     proc.CloseMainWindow();
+     if(!proc.WaitForExit(6000))
+      throw new IOException("Madi AI is still running. Exit the application from the system tray or Task Manager, then retry.");
+    }
+   }
+   finally {proc.Dispose();}
+  }
+ }
  void Remove()
  {
+  // The uninstaller is launched from a temporary copy. Never retain the install
+  // folder as the process working directory, which prevents Windows deleting it.
+  Environment.CurrentDirectory=Path.GetTempPath();
+  EnsureAppStopped();
+  if(Directory.Exists(target))
+  {
+   Exception? last=null;
+   for(var attempt=0;attempt<6;attempt++)
+   {
+    try { Directory.Delete(target,true); last=null; break; }
+    catch(IOException ex) {last=ex;}
+    catch(UnauthorizedAccessException ex) {last=ex;}
+    System.Threading.Thread.Sleep(750);
+   }
+   if(last!=null)throw new IOException("Windows is still locking Madi AI files. Close Madi AI and any File Explorer window opened inside its installation folder, then retry.",last);
+  }
   var desktop=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Madi AI.lnk");
   if(File.Exists(desktop))File.Delete(desktop);
   var menu=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs),"Madi AI");
   if(Directory.Exists(menu))Directory.Delete(menu,true);
-  foreach (var proc in Process.GetProcessesByName("MadiAI"))
-  {
-   try
-   {
-    if (string.Equals(proc.MainModule?.FileName,Path.Combine(target,"MadiAI.exe"),StringComparison.OrdinalIgnoreCase))
-    {
-     proc.CloseMainWindow();
-     if (!proc.WaitForExit(3000)) throw new IOException("Please close Madi AI before uninstalling and try again.");
-    }
-   }
-   finally { proc.Dispose(); }
-  }
-  if(Directory.Exists(target))Directory.Delete(target,true);
-  Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\MadiAI",false);
-  // The LocalAppData/MadiAI profile intentionally remains for secret-code persistence.
+  Registry.CurrentUser.DeleteSubKeyTree(@"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\MadiAI",false);
+  // Preserve user profile and access code in LocalAppData/MadiAI.
  }
 }

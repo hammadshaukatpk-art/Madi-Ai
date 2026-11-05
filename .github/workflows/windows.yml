@@ -1,6 +1,8 @@
 name: Build Madi AI Windows
 on:
   push:
+    branches: [main, 'fix/voice-chat-routing-20261105']
+  pull_request:
     branches: [main]
   workflow_dispatch:
 jobs:
@@ -43,6 +45,36 @@ jobs:
       - name: Publish dark-themed installer and uninstaller
         shell: pwsh
         run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
+      - name: Publish alternate multi-file self-contained installer for compatibility diagnosis
+        shell: pwsh
+        run: |
+          dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:UseAppHost=true -o setup-compatible
+          if (-not (Test-Path 'setup-compatible/Madi-AI-Setup.exe')) { throw 'Compatible installer executable missing' }
+          Compress-Archive -Path setup-compatible/* -DestinationPath Madi-AI-Setup-Compatible.zip -Force
+      - name: Verify alternate installer launches
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP 'madi-setup-smoke.log'
+          Remove-Item $log -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath (Resolve-Path setup-compatible/Madi-AI-Setup.exe).Path -ArgumentList '--smoke-ui' -PassThru
+          if (-not $p.WaitForExit(45000)) { $p.Kill(); throw 'Alternate installer startup timed out' }
+          if ($p.ExitCode -ne 0) { throw "Alternate installer failed: $($p.ExitCode)" }
+          if (-not (Test-Path $log)) { throw 'Alternate installer startup trace missing' }
+          if (-not (Select-String -Path $log -Pattern 'loaded: True' -Quiet)) { throw 'Alternate installer window did not load' }
+      - name: Verify Windows x64 PE installer and checksum
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'setup/Madi-AI-Setup.exe').Path
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          if ($bytes.Length -lt 1000000) { throw 'Installer unexpectedly small' }
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw 'Installer missing MZ header' }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ($peOffset -lt 64 -or $peOffset + 6 -ge $bytes.Length) { throw 'Invalid PE header offset' }
+          if ([Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4) -ne "PE`0`0") { throw 'Invalid PE signature' }
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          if ($machine -ne 0x8664) { throw ("Installer architecture mismatch: 0x{0:X4}" -f $machine) }
+          Write-Host "Verified x64 Windows PE installer: $($bytes.Length) bytes"
+          Get-FileHash $exe -Algorithm SHA256 | Format-List
       - name: Verify standalone EXE launches without sidecar DLLs
         shell: pwsh
         run: |
@@ -75,6 +107,11 @@ jobs:
         with:
           name: Madi-AI-Native-Dark-Installer
           path: setup/Madi-AI-Setup.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Madi-AI-Installer-Compatible-Diagnostic
+          path: Madi-AI-Setup-Compatible.zip
           if-no-files-found: error
       - name: Publish direct-download EXE release
         if: github.ref == 'refs/heads/main'
