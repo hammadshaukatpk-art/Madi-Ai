@@ -45,10 +45,10 @@ jobs:
       - name: Publish dark-themed installer and uninstaller
         shell: pwsh
         run: dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o setup
-      - name: Publish alternate framework-dependent installer for compatibility diagnosis
+      - name: Publish alternate multi-file self-contained installer for compatibility diagnosis
         shell: pwsh
         run: |
-          dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:UseAppHost=true -o setup-compatible
+          dotnet publish SetupHost/SetupHost.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:UseAppHost=true -o setup-compatible
           if (-not (Test-Path 'setup-compatible/Madi-AI-Setup.exe')) { throw 'Compatible installer executable missing' }
           Compress-Archive -Path setup-compatible/* -DestinationPath Madi-AI-Setup-Compatible.zip -Force
       - name: Verify alternate installer launches
